@@ -1,0 +1,4 @@
+-- erb -r ffaker -r date person.sql.erb
+insert into person(first_name, last_name, sex, birth_date, weight, height) values
+<% 10_000.times do |n| %><%= "," unless n==0 %>('<%= Faker::Name.first_name.gsub("'", "''") %>', '<%= Faker::Name.last_name.gsub("'", "''") %>', '<%= %w[male female].sample %>', '<%= Date.today - rand(10_000) %>', <%= 5 + rand(400) %>, <%= 20 + rand(60) %>)
+<% end %>;
