@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"github.com/jackc/go_db_bench/raw"
 	"github.com/jackc/pgx"
 	"sync"
 	"testing"
@@ -13,6 +14,7 @@ var (
 	pgxPool       *pgx.ConnPool
 	pgxStdlib     *sql.DB
 	pq            *sql.DB
+	rawConn       *raw.Conn
 	randPersonIDs []int32
 )
 
@@ -77,6 +79,22 @@ func setup(b *testing.B) {
 		pq, err = openPq(config)
 		if err != nil {
 			b.Fatalf("openPq failed: %v", err)
+		}
+
+		rawConfig := raw.ConnConfig{
+			Host:     config.Host,
+			Port:     config.Port,
+			User:     config.User,
+			Password: config.Password,
+			Database: config.Database,
+		}
+		rawConn, err = raw.Connect(rawConfig)
+		if err != nil {
+			b.Fatalf("raw.Connect failed: %v", err)
+		}
+		_, err = rawConn.Prepare("selectPersonName", selectPersonNameSQL)
+		if err != nil {
+			b.Fatalf("rawConn.Prepare failed: %v", err)
 		}
 
 		// Get random person ids in random order outside of timing
@@ -177,6 +195,32 @@ func benchmarkSelectSingleValuePrepared(b *testing.B, stmt *sql.Stmt) {
 		}
 		if len(firstName) == 0 {
 			b.Fatal("firstName was empty")
+		}
+	}
+}
+
+func BenchmarkRawSelectSingleValuePrepared(b *testing.B) {
+	setup(b)
+	b.ResetTimer()
+
+	txBuf := []byte{0x42, 0x0, 0x0, 0x0, 0x28, 0x0, 0x73, 0x65, 0x6c, 0x65, 0x63, 0x74, 0x50, 0x65, 0x72, 0x73, 0x6f, 0x6e, 0x4e, 0x61, 0x6d, 0x65, 0x0, 0x0, 0x1, 0x0, 0x1, 0x0, 0x1, 0x0, 0x0, 0x0, 0x4, 0x0, 0x0, 0x11, 0x61, 0x0, 0x1, 0x0, 0x0, 0x45, 0x0, 0x0, 0x0, 0x9, 0x0, 0x0, 0x0, 0x0, 0x0, 0x53, 0x0, 0x0, 0x0, 0x4}
+
+	// rxMinSize := 33
+	rxMaxSize := 42
+	rxBuf := make([]byte, rxMaxSize)
+
+	for i := 0; i < b.N; i++ {
+		_, err := rawConn.Conn.Write(txBuf)
+		if err != nil {
+			b.Fatalf("rawConn.Conn.Write failed: %v", err)
+		}
+
+		n, err := rawConn.Conn.Read(rxBuf)
+		if err != nil {
+			b.Fatalf("rawConn.Conn.Read failed: %v", err)
+		}
+		if rxBuf[n-1] != 'I' {
+			b.Fatalf("Did not read entire message: %v", rxBuf)
 		}
 	}
 }
