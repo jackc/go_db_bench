@@ -26,7 +26,11 @@ where id=$1`
 var selectMultiplePeopleSQL = `
 select id, first_name, last_name, sex, birth_date, weight, height
 from person
-where id between $1 and $1 + 25`
+where id between $1 and $1 + 24`
+
+var rawSelectPersonNameStmt *raw.PreparedStatement
+var rawSelectPersonStmt *raw.PreparedStatement
+var rawSelectMultiplePeopleStmt *raw.PreparedStatement
 
 var rxBuf []byte
 
@@ -94,15 +98,15 @@ func setup(b *testing.B) {
 		if err != nil {
 			b.Fatalf("raw.Connect failed: %v", err)
 		}
-		_, err = rawConn.Prepare("selectPersonName", selectPersonNameSQL)
+		rawSelectPersonNameStmt, err = rawConn.Prepare("selectPersonName", selectPersonNameSQL)
 		if err != nil {
 			b.Fatalf("rawConn.Prepare failed: %v", err)
 		}
-		_, err = rawConn.Prepare("selectPerson", selectPersonSQL)
+		rawSelectPersonStmt, err = rawConn.Prepare("selectPerson", selectPersonSQL)
 		if err != nil {
 			b.Fatalf("rawConn.Prepare failed: %v", err)
 		}
-		_, err = rawConn.Prepare("selectMultiplePeople", selectMultiplePeopleSQL)
+		rawSelectMultiplePeopleStmt, err = rawConn.Prepare("selectMultiplePeople", selectMultiplePeopleSQL)
 		if err != nil {
 			b.Fatalf("rawConn.Prepare failed: %v", err)
 		}
@@ -213,12 +217,20 @@ func benchmarkSelectSingleValuePrepared(b *testing.B, stmt *sql.Stmt) {
 
 func BenchmarkRawSelectSingleValuePrepared(b *testing.B) {
 	setup(b)
+
+	txBufs := make([][]byte, len(randPersonIDs))
+	for i, personID := range randPersonIDs {
+		var err error
+		txBufs[i], err = rawConn.BuildPreparedQueryBuf(rawSelectPersonNameStmt, personID)
+		if err != nil {
+			b.Fatalf("rawConn.BuildPreparedQueryBuf failed: %v", err)
+		}
+	}
+
 	b.ResetTimer()
-
-	txBuf := []byte{0x42, 0x0, 0x0, 0x0, 0x28, 0x0, 0x73, 0x65, 0x6c, 0x65, 0x63, 0x74, 0x50, 0x65, 0x72, 0x73, 0x6f, 0x6e, 0x4e, 0x61, 0x6d, 0x65, 0x0, 0x0, 0x1, 0x0, 0x1, 0x0, 0x1, 0x0, 0x0, 0x0, 0x4, 0x0, 0x0, 0x11, 0x61, 0x0, 0x1, 0x0, 0x0, 0x45, 0x0, 0x0, 0x0, 0x9, 0x0, 0x0, 0x0, 0x0, 0x0, 0x53, 0x0, 0x0, 0x0, 0x4}
-
 	for i := 0; i < b.N; i++ {
-		_, err := rawConn.Conn.Write(txBuf)
+		txBuf := txBufs[i%len(txBufs)]
+		_, err := rawConn.Conn().Write(txBuf)
 		if err != nil {
 			b.Fatalf("rawConn.Conn.Write failed: %v", err)
 		}
@@ -352,12 +364,20 @@ func benchmarkSelectSingleRowPrepared(b *testing.B, stmt *sql.Stmt) {
 
 func BenchmarkRawSelectSingleRowPrepared(b *testing.B) {
 	setup(b)
+
+	txBufs := make([][]byte, len(randPersonIDs))
+	for i, personID := range randPersonIDs {
+		var err error
+		txBufs[i], err = rawConn.BuildPreparedQueryBuf(rawSelectPersonStmt, personID)
+		if err != nil {
+			b.Fatalf("rawConn.BuildPreparedQueryBuf failed: %v", err)
+		}
+	}
+
 	b.ResetTimer()
-
-	txBuf := []byte{0x42, 0x0, 0x0, 0x0, 0x30, 0x0, 0x73, 0x65, 0x6c, 0x65, 0x63, 0x74, 0x50, 0x65, 0x72, 0x73, 0x6f, 0x6e, 0x0, 0x0, 0x1, 0x0, 0x1, 0x0, 0x1, 0x0, 0x0, 0x0, 0x4, 0x0, 0x0, 0xc, 0x7e, 0x0, 0x7, 0x0, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x1, 0x45, 0x0, 0x0, 0x0, 0x9, 0x0, 0x0, 0x0, 0x0, 0x0, 0x53, 0x0, 0x0, 0x0, 0x4}
-
 	for i := 0; i < b.N; i++ {
-		_, err := rawConn.Conn.Write(txBuf)
+		txBuf := txBufs[i%len(txBufs)]
+		_, err := rawConn.Conn().Write(txBuf)
 		if err != nil {
 			b.Fatalf("rawConn.Conn.Write failed: %v", err)
 		}
@@ -497,12 +517,20 @@ func benchmarkSelectMultipleRowsPrepared(b *testing.B, stmt *sql.Stmt) {
 
 func BenchmarkRawSelectMultipleRowsPrepared(b *testing.B) {
 	setup(b)
+
+	txBufs := make([][]byte, len(randPersonIDs))
+	for i, personID := range randPersonIDs {
+		var err error
+		txBufs[i], err = rawConn.BuildPreparedQueryBuf(rawSelectMultiplePeopleStmt, personID)
+		if err != nil {
+			b.Fatalf("rawConn.BuildPreparedQueryBuf failed: %v", err)
+		}
+	}
+
 	b.ResetTimer()
-
-	txBuf := []byte{0x42, 0x0, 0x0, 0x0, 0x38, 0x0, 0x73, 0x65, 0x6c, 0x65, 0x63, 0x74, 0x4d, 0x75, 0x6c, 0x74, 0x69, 0x70, 0x6c, 0x65, 0x50, 0x65, 0x6f, 0x70, 0x6c, 0x65, 0x0, 0x0, 0x1, 0x0, 0x1, 0x0, 0x1, 0x0, 0x0, 0x0, 0x4, 0x0, 0x0, 0x11, 0x83, 0x0, 0x7, 0x0, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x1, 0x45, 0x0, 0x0, 0x0, 0x9, 0x0, 0x0, 0x0, 0x0, 0x0, 0x53, 0x0, 0x0, 0x0, 0x4}
-
 	for i := 0; i < b.N; i++ {
-		_, err := rawConn.Conn.Write(txBuf)
+		txBuf := txBufs[i%len(txBufs)]
+		_, err := rawConn.Conn().Write(txBuf)
 		if err != nil {
 			b.Fatalf("rawConn.Conn.Write failed: %v", err)
 		}
@@ -513,7 +541,7 @@ func BenchmarkRawSelectMultipleRowsPrepared(b *testing.B) {
 
 func rxRawUntilReady(b *testing.B) {
 	for {
-		n, err := rawConn.Conn.Read(rxBuf)
+		n, err := rawConn.Conn().Read(rxBuf)
 		if err != nil {
 			b.Fatalf("rawConn.Conn.Read failed: %v", err)
 		}

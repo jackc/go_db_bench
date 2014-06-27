@@ -1,6 +1,6 @@
 # Go Database Benchmark
 
-This tests the performance of pgx native, pgx through database/sql, apq through
+This tests the performance of pgx native, pgx through database/sql, pq through
 database/sql, and theoretical maximum PostgreSQL performance.
 
 ## Theoretical Max PostgreSQL Performance
@@ -11,10 +11,6 @@ connection and prepare statements. Query execution is benchmarked by sending a
 message is received. This should be the theoretical best performance a Go
 PostgreSQL driver could achieve.
 
-Caveats:
-
-* The other benchmarks select different rows with each query. The raw queries
-  select exactly the same rows each time.
-* The returned data is not checked or parsed. It is only read until the ready
-  for query message is received. If an error occurs it may not be apparent
-  which could cause the timing to be misleading.
+Caveat: The returned data is not checked or parsed. It is only read until the
+ready for query message is received. If an error occurs it may not be apparent
+which could cause the timing to be misleading.
