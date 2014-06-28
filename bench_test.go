@@ -114,12 +114,14 @@ func setup(b *testing.B) {
 		rxBuf = make([]byte, 16384)
 
 		// Get random person ids in random order outside of timing
-		ids, err := pgxPool.SelectValues("select id from person order by random()")
-		if err != nil {
-			b.Fatalf("pgxPool.SelectValues failed: %v", err)
+		qr, _ := pgxPool.Query("select id from person order by random()")
+		for qr.NextRow() {
+			var rr pgx.RowReader
+			randPersonIDs = append(randPersonIDs, rr.ReadInt32(qr))
 		}
-		for _, id := range ids {
-			randPersonIDs = append(randPersonIDs, id.(int32))
+
+		if qr.Err() != nil {
+			b.Fatalf("pgxPool.Query failed: %v", err)
 		}
 	})
 }
@@ -249,18 +251,20 @@ func benchmarkPgxNativeSelectSingleRow(b *testing.B, sql string) {
 	for i := 0; i < b.N; i++ {
 		var p person
 		id := randPersonIDs[i%len(randPersonIDs)]
-		err := pgxPool.SelectFunc(sql, func(r *pgx.DataRowReader) error {
-			p.id = r.ReadValue().(int32)
-			p.firstName = r.ReadValue().(string)
-			p.lastName = r.ReadValue().(string)
-			p.sex = r.ReadValue().(string)
-			p.birthDate = r.ReadValue().(time.Time)
-			p.weight = r.ReadValue().(int32)
-			p.height = r.ReadValue().(int32)
-			return nil
-		}, id)
-		if err != nil {
-			b.Fatalf("pgxPool.SelectFunc failed: %v", err)
+
+		qr, _ := pgxPool.Query(sql, id)
+		for qr.NextRow() {
+			var rr pgx.RowReader
+			p.id = rr.ReadInt32(qr)
+			p.firstName = rr.ReadString(qr)
+			p.lastName = rr.ReadString(qr)
+			p.sex = rr.ReadString(qr)
+			p.birthDate = rr.ReadDate(qr)
+			p.weight = rr.ReadInt32(qr)
+			p.height = rr.ReadInt32(qr)
+		}
+		if qr.Err() != nil {
+			b.Fatalf("pgxPool.Query failed: %v", qr.Err())
 		}
 
 		checkPersonWasFilled(b, p)
@@ -396,20 +400,22 @@ func benchmarkPgxNativeSelectMultipleRows(b *testing.B, sql string) {
 	for i := 0; i < b.N; i++ {
 		var people []person
 		id := randPersonIDs[i%len(randPersonIDs)]
-		err := pgxPool.SelectFunc(sql, func(r *pgx.DataRowReader) error {
+
+		qr, _ := pgxPool.Query(sql, id)
+		for qr.NextRow() {
+			var rr pgx.RowReader
 			var p person
-			p.id = r.ReadValue().(int32)
-			p.firstName = r.ReadValue().(string)
-			p.lastName = r.ReadValue().(string)
-			p.sex = r.ReadValue().(string)
-			p.birthDate = r.ReadValue().(time.Time)
-			p.weight = r.ReadValue().(int32)
-			p.height = r.ReadValue().(int32)
+			p.id = rr.ReadInt32(qr)
+			p.firstName = rr.ReadString(qr)
+			p.lastName = rr.ReadString(qr)
+			p.sex = rr.ReadString(qr)
+			p.birthDate = rr.ReadDate(qr)
+			p.weight = rr.ReadInt32(qr)
+			p.height = rr.ReadInt32(qr)
 			people = append(people, p)
-			return nil
-		}, id)
-		if err != nil {
-			b.Fatalf("pgxPool.SelectFunc failed: %v", err)
+		}
+		if qr.Err() != nil {
+			b.Fatalf("pgxPool.Query failed: %v", qr.Err())
 		}
 
 		for _, p := range people {

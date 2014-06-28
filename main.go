@@ -136,17 +136,17 @@ func loadTestData(config pgx.ConnPoolConfig) error {
 	}
 	defer conn.Close()
 
-	_, err = conn.Execute(personCreateSQL)
+	_, err = conn.Exec(personCreateSQL)
 	if err != nil {
 		return err
 	}
 
-	_, err = conn.Execute(personInsertSQL)
+	_, err = conn.Exec(personInsertSQL)
 	if err != nil {
 		return err
 	}
 
-	_, err = conn.Execute("analyze person")
+	_, err = conn.Exec("analyze person")
 	if err != nil {
 		return err
 	}
