@@ -464,6 +464,78 @@ func BenchmarkPgxNativeSelectMultipleRowsPrepared(b *testing.B) {
 	benchmarkPgxNativeSelectMultipleRows(b, "selectMultiplePeople")
 }
 
+func BenchmarkPgxNativeLowLevelSelectMultipleRowsPrepared(b *testing.B) {
+	setup(b)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		var people []person
+		id := randPersonIDs[i%len(randPersonIDs)]
+		err := pgxPool.SelectFunc("selectMultiplePeople", func(r *pgx.DataRowReader) error {
+			var p person
+			mr := r.MessageReader()
+			mr.ReadInt32()
+			p.id = mr.ReadInt32()
+			p.firstName = mr.ReadString(mr.ReadInt32())
+			p.lastName = mr.ReadString(mr.ReadInt32())
+			p.sex = mr.ReadString(mr.ReadInt32())
+			mr.ReadInt32()
+			p.birthDate = time.Date(2000, 1, int(1+mr.ReadInt32()), 0, 0, 0, 0, time.Local)
+			mr.ReadInt32()
+			p.weight = mr.ReadInt32()
+			mr.ReadInt32()
+			p.height = mr.ReadInt32()
+			people = append(people, p)
+			return nil
+		}, id)
+		if err != nil {
+			b.Fatalf("pgxPool.SelectFunc failed: %v", err)
+		}
+
+		for _, p := range people {
+			checkPersonWasFilled(b, p)
+		}
+	}
+}
+
+func BenchmarkPgxNativeQuerySelectMultipleRowsPrepared(b *testing.B) {
+	setup(b)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		var people []person
+		id := randPersonIDs[i%len(randPersonIDs)]
+		conn, err := pgxPool.Acquire()
+		if err != nil {
+			b.Fatalf("pgxPool.Acquire failed: %v", err)
+		}
+
+		qr, _ := conn.Query("selectMultiplePeople", id)
+		for qr.NextRow() {
+			var p person
+			var rr pgx.RowReader
+			p.id = rr.ReadInt32(qr)
+			p.firstName = rr.ReadString(qr)
+			p.lastName = rr.ReadString(qr)
+			p.sex = rr.ReadString(qr)
+			p.birthDate = rr.ReadDate(qr)
+			p.weight = rr.ReadInt32(qr)
+			p.height = rr.ReadInt32(qr)
+			people = append(people, p)
+		}
+
+		if qr.Err() != nil {
+			b.Fatalf("qr.NextRow failed: %v", err)
+		}
+
+		for _, p := range people {
+			checkPersonWasFilled(b, p)
+		}
+
+		pgxPool.Release(conn)
+	}
+}
+
 func BenchmarkPgxStdlibSelectMultipleRowsPrepared(b *testing.B) {
 	setup(b)
 	stmt, err := pgxStdlib.Prepare(selectMultiplePeopleSQL)
