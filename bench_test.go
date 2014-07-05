@@ -328,6 +328,26 @@ func BenchmarkPgxNativeSelectSingleRowPrepared(b *testing.B) {
 	benchmarkPgxNativeSelectSingleRow(b, "selectPerson")
 }
 
+func BenchmarkPgxNativeSelectSingleRowScanPrepared(b *testing.B) {
+	setup(b)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		var p person
+		id := randPersonIDs[i%len(randPersonIDs)]
+
+		qr, _ := pgxPool.Query("selectPerson", id)
+		for qr.NextRow() {
+			qr.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height)
+		}
+		if qr.Err() != nil {
+			b.Fatalf("pgxPool.Query failed: %v", qr.Err())
+		}
+
+		checkPersonWasFilled(b, p)
+	}
+}
+
 func BenchmarkPgxStdlibSelectSingleRowPrepared(b *testing.B) {
 	setup(b)
 	stmt, err := pgxStdlib.Prepare(selectPersonSQL)
