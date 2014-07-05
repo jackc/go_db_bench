@@ -16,7 +16,8 @@ import (
 var selectPeopleJSONSQL = `
 select coalesce(json_agg(row_to_json(person)), '[]'::json)
 from person
-where id between $1 and $1 + 25 `
+where id between $1 and $1 + 25
+`
 
 func main() {
 	connPoolConfig := extractConfig()
@@ -65,7 +66,16 @@ func main() {
 
 	http.HandleFunc("/people/pgx-native", func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		if err := pgxPool.SelectValueTo(w, "selectPeopleJSON", rand.Int31n(10000)); err != nil {
+
+		qr, _ := pgxPool.Query("selectPeopleJSON", rand.Int31n(10000))
+
+		for qr.NextRow() {
+			var rr pgx.RowReader
+			json := rr.ReadString(qr)
+			io.WriteString(w, json)
+		}
+		if qr.Err() != nil {
+			fmt.Fprintln(os.Stderr, qr.Err())
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 		}
 	})
@@ -77,6 +87,7 @@ func main() {
 		var json string
 		err := row.Scan(&json)
 		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
@@ -91,6 +102,7 @@ func main() {
 		var json string
 		err := row.Scan(&json)
 		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
@@ -125,6 +137,8 @@ func extractConfig() pgx.ConnPoolConfig {
 	if config.Database == "" {
 		config.Database = "go_db_bench"
 	}
+
+	config.MaxConnections = 10
 
 	return config
 }
