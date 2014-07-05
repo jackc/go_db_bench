@@ -116,8 +116,9 @@ func setup(b *testing.B) {
 		// Get random person ids in random order outside of timing
 		qr, _ := pgxPool.Query("select id from person order by random()")
 		for qr.NextRow() {
-			var rr pgx.RowReader
-			randPersonIDs = append(randPersonIDs, rr.ReadInt32(qr))
+			var id int32
+			qr.Scan(&id)
+			randPersonIDs = append(randPersonIDs, id)
 		}
 
 		if qr.Err() != nil {
@@ -135,11 +136,12 @@ func BenchmarkPgxNativeSelectSingleValueUnprepared(b *testing.B) {
 func benchmarkPgxNativeSelectSingleValue(b *testing.B, sql string) {
 	for i := 0; i < b.N; i++ {
 		id := randPersonIDs[i%len(randPersonIDs)]
-		firstName, err := pgxPool.SelectValue(sql, id)
+		var firstName string
+		err := pgxPool.QueryRow(sql, id).Scan(&firstName)
 		if err != nil {
-			b.Fatalf("pgxPool.SelectValue failed: %v", err)
+			b.Fatalf("pgxPool.QueryRow Scan failed: %v", err)
 		}
-		if len(firstName.(string)) == 0 {
+		if len(firstName) == 0 {
 			b.Fatal("firstName was empty")
 		}
 	}
@@ -252,16 +254,9 @@ func benchmarkPgxNativeSelectSingleRow(b *testing.B, sql string) {
 		var p person
 		id := randPersonIDs[i%len(randPersonIDs)]
 
-		qr, _ := pgxPool.Query(sql, id)
+		qr, _ := pgxPool.Query("selectPerson", id)
 		for qr.NextRow() {
-			var rr pgx.RowReader
-			p.id = rr.ReadInt32(qr)
-			p.firstName = rr.ReadString(qr)
-			p.lastName = rr.ReadString(qr)
-			p.sex = rr.ReadString(qr)
-			p.birthDate = rr.ReadDate(qr)
-			p.weight = rr.ReadInt32(qr)
-			p.height = rr.ReadInt32(qr)
+			qr.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height)
 		}
 		if qr.Err() != nil {
 			b.Fatalf("pgxPool.Query failed: %v", qr.Err())
@@ -326,26 +321,6 @@ func BenchmarkPgxNativeSelectSingleRowPrepared(b *testing.B) {
 	setup(b)
 	b.ResetTimer()
 	benchmarkPgxNativeSelectSingleRow(b, "selectPerson")
-}
-
-func BenchmarkPgxNativeSelectSingleRowScanPrepared(b *testing.B) {
-	setup(b)
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		var p person
-		id := randPersonIDs[i%len(randPersonIDs)]
-
-		qr, _ := pgxPool.Query("selectPerson", id)
-		for qr.NextRow() {
-			qr.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height)
-		}
-		if qr.Err() != nil {
-			b.Fatalf("pgxPool.Query failed: %v", qr.Err())
-		}
-
-		checkPersonWasFilled(b, p)
-	}
 }
 
 func BenchmarkPgxStdlibSelectSingleRowPrepared(b *testing.B) {
@@ -423,15 +398,8 @@ func benchmarkPgxNativeSelectMultipleRows(b *testing.B, sql string) {
 
 		qr, _ := pgxPool.Query(sql, id)
 		for qr.NextRow() {
-			var rr pgx.RowReader
 			var p person
-			p.id = rr.ReadInt32(qr)
-			p.firstName = rr.ReadString(qr)
-			p.lastName = rr.ReadString(qr)
-			p.sex = rr.ReadString(qr)
-			p.birthDate = rr.ReadDate(qr)
-			p.weight = rr.ReadInt32(qr)
-			p.height = rr.ReadInt32(qr)
+			qr.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height)
 			people = append(people, p)
 		}
 		if qr.Err() != nil {
