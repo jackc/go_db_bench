@@ -67,17 +67,15 @@ func main() {
 	http.HandleFunc("/people/pgx-native", func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
-		qr, _ := pgxPool.Query("selectPeopleJSON", rand.Int31n(10000))
+		var json string
 
-		for qr.NextRow() {
-			var rr pgx.RowReader
-			json := rr.ReadString(qr)
-			io.WriteString(w, json)
-		}
-		if qr.Err() != nil {
-			fmt.Fprintln(os.Stderr, qr.Err())
+		err := pgxPool.QueryRow("selectPeopleJSON", rand.Int31n(10000)).Scan(&json)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
 		}
+		io.WriteString(w, json)
 	})
 
 	http.HandleFunc("/people/pgx-stdlib", func(w http.ResponseWriter, req *http.Request) {
