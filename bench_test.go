@@ -114,14 +114,14 @@ func setup(b *testing.B) {
 		rxBuf = make([]byte, 16384)
 
 		// Get random person ids in random order outside of timing
-		qr, _ := pgxPool.Query("select id from person order by random()")
-		for qr.NextRow() {
+		rows, _ := pgxPool.Query("select id from person order by random()")
+		for rows.NextRow() {
 			var id int32
-			qr.Scan(&id)
+			rows.Scan(&id)
 			randPersonIDs = append(randPersonIDs, id)
 		}
 
-		if qr.Err() != nil {
+		if rows.Err() != nil {
 			b.Fatalf("pgxPool.Query failed: %v", err)
 		}
 	})
@@ -254,12 +254,12 @@ func benchmarkPgxNativeSelectSingleRow(b *testing.B, sql string) {
 		var p person
 		id := randPersonIDs[i%len(randPersonIDs)]
 
-		qr, _ := pgxPool.Query("selectPerson", id)
-		for qr.NextRow() {
-			qr.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height)
+		rows, _ := pgxPool.Query("selectPerson", id)
+		for rows.NextRow() {
+			rows.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height)
 		}
-		if qr.Err() != nil {
-			b.Fatalf("pgxPool.Query failed: %v", qr.Err())
+		if rows.Err() != nil {
+			b.Fatalf("pgxPool.Query failed: %v", rows.Err())
 		}
 
 		checkPersonWasFilled(b, p)
@@ -396,14 +396,14 @@ func benchmarkPgxNativeSelectMultipleRows(b *testing.B, sql string) {
 		var people []person
 		id := randPersonIDs[i%len(randPersonIDs)]
 
-		qr, _ := pgxPool.Query(sql, id)
-		for qr.NextRow() {
+		rows, _ := pgxPool.Query(sql, id)
+		for rows.NextRow() {
 			var p person
-			qr.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height)
+			rows.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height)
 			people = append(people, p)
 		}
-		if qr.Err() != nil {
-			b.Fatalf("pgxPool.Query failed: %v", qr.Err())
+		if rows.Err() != nil {
+			b.Fatalf("pgxPool.Query failed: %v", rows.Err())
 		}
 
 		for _, p := range people {
