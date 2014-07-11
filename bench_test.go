@@ -115,7 +115,7 @@ func setup(b *testing.B) {
 
 		// Get random person ids in random order outside of timing
 		rows, _ := pgxPool.Query("select id from person order by random()")
-		for rows.NextRow() {
+		for rows.Next() {
 			var id int32
 			rows.Scan(&id)
 			randPersonIDs = append(randPersonIDs, id)
@@ -255,7 +255,7 @@ func benchmarkPgxNativeSelectSingleRow(b *testing.B, sql string) {
 		id := randPersonIDs[i%len(randPersonIDs)]
 
 		rows, _ := pgxPool.Query("selectPerson", id)
-		for rows.NextRow() {
+		for rows.Next() {
 			rows.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height)
 		}
 		if rows.Err() != nil {
@@ -397,7 +397,7 @@ func benchmarkPgxNativeSelectMultipleRows(b *testing.B, sql string) {
 		id := randPersonIDs[i%len(randPersonIDs)]
 
 		rows, _ := pgxPool.Query(sql, id)
-		for rows.NextRow() {
+		for rows.Next() {
 			var p person
 			rows.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height)
 			people = append(people, p)
