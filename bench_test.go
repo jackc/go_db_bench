@@ -20,11 +20,11 @@ var (
 
 var selectPersonNameSQL = `select first_name from person where id=$1`
 var selectPersonSQL = `
-select id, first_name, last_name, sex, birth_date, weight, height
+select id, first_name, last_name, sex, birth_date, weight, height, update_time
 from person
 where id=$1`
 var selectMultiplePeopleSQL = `
-select id, first_name, last_name, sex, birth_date, weight, height
+select id, first_name, last_name, sex, birth_date, weight, height, update_time
 from person
 where id between $1 and $1 + 24`
 
@@ -35,13 +35,14 @@ var rawSelectMultiplePeopleStmt *raw.PreparedStatement
 var rxBuf []byte
 
 type person struct {
-	id        int32
-	firstName string
-	lastName  string
-	sex       string
-	birthDate time.Time
-	weight    int32
-	height    int32
+	id         int32
+	firstName  string
+	lastName   string
+	sex        string
+	birthDate  time.Time
+	weight     int32
+	height     int32
+	updateTime time.Time
 }
 
 func setup(b *testing.B) {
@@ -256,7 +257,7 @@ func benchmarkPgxNativeSelectSingleRow(b *testing.B, sql string) {
 
 		rows, _ := pgxPool.Query("selectPerson", id)
 		for rows.Next() {
-			rows.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height)
+			rows.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height, &p.updateTime)
 		}
 		if rows.Err() != nil {
 			b.Fatalf("pgxPool.Query failed: %v", rows.Err())
@@ -289,6 +290,9 @@ func checkPersonWasFilled(b *testing.B, p person) {
 	if p.height == 0 {
 		b.Fatal("height was 0")
 	}
+	if p.updateTime == zeroTime {
+		b.Fatal("updateTime was zero time")
+	}
 }
 
 func BenchmarkPgxStdlibSelectSingleRowUnprepared(b *testing.B) {
@@ -308,7 +312,7 @@ func benchmarkSelectSingleRowUnprepared(b *testing.B, db *sql.DB) {
 		id := randPersonIDs[i%len(randPersonIDs)]
 		row := db.QueryRow(selectPersonSQL, id)
 		var p person
-		err := row.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height)
+		err := row.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height, &p.updateTime)
 		if err != nil {
 			b.Fatalf("row.Scan failed: %v", err)
 		}
@@ -352,7 +356,7 @@ func benchmarkSelectSingleRowPrepared(b *testing.B, stmt *sql.Stmt) {
 		id := randPersonIDs[i%len(randPersonIDs)]
 		row := stmt.QueryRow(id)
 		var p person
-		err := row.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height)
+		err := row.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height, &p.updateTime)
 		if err != nil {
 			b.Fatalf("row.Scan failed: %v", err)
 		}
@@ -399,7 +403,7 @@ func benchmarkPgxNativeSelectMultipleRows(b *testing.B, sql string) {
 		rows, _ := pgxPool.Query(sql, id)
 		for rows.Next() {
 			var p person
-			rows.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height)
+			rows.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height, &p.updateTime)
 			people = append(people, p)
 		}
 		if rows.Err() != nil {
@@ -435,7 +439,7 @@ func benchmarkSelectMultipleRowsUnprepared(b *testing.B, db *sql.DB) {
 
 		for rows.Next() {
 			var p person
-			err := rows.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height)
+			err := rows.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height, &p.updateTime)
 			if err != nil {
 				b.Fatalf("rows.Scan failed: %v", err)
 			}
@@ -492,7 +496,7 @@ func benchmarkSelectMultipleRowsPrepared(b *testing.B, stmt *sql.Stmt) {
 
 		for rows.Next() {
 			var p person
-			err := rows.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height)
+			err := rows.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height, &p.updateTime)
 			if err != nil {
 				b.Fatalf("rows.Scan failed: %v", err)
 			}
