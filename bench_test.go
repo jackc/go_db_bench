@@ -14,6 +14,7 @@ var (
 	pgxPool       *pgx.ConnPool
 	pgxStdlib     *sql.DB
 	pq            *sql.DB
+	libpq         *sql.DB
 	rawConn       *raw.Conn
 	randPersonIDs []int32
 )
@@ -85,6 +86,11 @@ func setup(b *testing.B) {
 		pq, err = openPq(config)
 		if err != nil {
 			b.Fatalf("openPq failed: %v", err)
+		}
+
+		libpq, err = openLibPq(config)
+		if err != nil {
+			b.Fatalf("openLibPq failed: %v", err)
 		}
 
 		rawConfig := raw.ConnConfig{
@@ -159,6 +165,12 @@ func BenchmarkPqSelectSingleValueUnprepared(b *testing.B) {
 	benchmarkSelectSingleValueUnprepared(b, pq)
 }
 
+func BenchmarkLibPqSelectSingleValueUnprepared(b *testing.B) {
+	setup(b)
+	b.ResetTimer()
+	benchmarkSelectSingleValueUnprepared(b, libpq)
+}
+
 func benchmarkSelectSingleValueUnprepared(b *testing.B, db *sql.DB) {
 	for i := 0; i < b.N; i++ {
 		id := randPersonIDs[i%len(randPersonIDs)]
@@ -195,6 +207,18 @@ func BenchmarkPgxStdlibSelectSingleValuePrepared(b *testing.B) {
 func BenchmarkPqSelectSingleValuePrepared(b *testing.B) {
 	setup(b)
 	stmt, err := pq.Prepare(selectPersonNameSQL)
+	if err != nil {
+		b.Fatalf("Prepare failed: %v", err)
+	}
+	defer stmt.Close()
+
+	b.ResetTimer()
+	benchmarkSelectSingleValuePrepared(b, stmt)
+}
+
+func BenchmarkLibPqSelectSingleValuePrepared(b *testing.B) {
+	setup(b)
+	stmt, err := libpq.Prepare(selectPersonNameSQL)
 	if err != nil {
 		b.Fatalf("Prepare failed: %v", err)
 	}
@@ -303,6 +327,11 @@ func BenchmarkPqSelectSingleRowUnprepared(b *testing.B) {
 	benchmarkSelectSingleRowUnprepared(b, pq)
 }
 
+func BenchmarkLibPqSelectSingleRowUnprepared(b *testing.B) {
+	setup(b)
+	b.ResetTimer()
+	benchmarkSelectSingleRowUnprepared(b, libpq)
+}
 func benchmarkSelectSingleRowUnprepared(b *testing.B, db *sql.DB) {
 	for i := 0; i < b.N; i++ {
 		id := randPersonIDs[i%len(randPersonIDs)]
@@ -338,6 +367,18 @@ func BenchmarkPgxStdlibSelectSingleRowPrepared(b *testing.B) {
 func BenchmarkPqSelectSingleRowPrepared(b *testing.B) {
 	setup(b)
 	stmt, err := pq.Prepare(selectPersonSQL)
+	if err != nil {
+		b.Fatalf("Prepare failed: %v", err)
+	}
+	defer stmt.Close()
+
+	b.ResetTimer()
+	benchmarkSelectSingleRowPrepared(b, stmt)
+}
+
+func BenchmarkLibPqSelectSingleRowPrepared(b *testing.B) {
+	setup(b)
+	stmt, err := libpq.Prepare(selectPersonSQL)
 	if err != nil {
 		b.Fatalf("Prepare failed: %v", err)
 	}
@@ -424,6 +465,12 @@ func BenchmarkPqSelectMultipleRowsUnprepared(b *testing.B) {
 	benchmarkSelectMultipleRowsUnprepared(b, pq)
 }
 
+func BenchmarkLibPqSelectMultipleRowsUnprepared(b *testing.B) {
+	setup(b)
+	b.ResetTimer()
+	benchmarkSelectMultipleRowsUnprepared(b, libpq)
+}
+
 func benchmarkSelectMultipleRowsUnprepared(b *testing.B, db *sql.DB) {
 	for i := 0; i < b.N; i++ {
 		var people []person
@@ -472,6 +519,18 @@ func BenchmarkPgxStdlibSelectMultipleRowsPrepared(b *testing.B) {
 func BenchmarkPqSelectMultipleRowsPrepared(b *testing.B) {
 	setup(b)
 	stmt, err := pq.Prepare(selectMultiplePeopleSQL)
+	if err != nil {
+		b.Fatalf("Prepare failed: %v", err)
+	}
+	defer stmt.Close()
+
+	b.ResetTimer()
+	benchmarkSelectMultipleRowsPrepared(b, stmt)
+}
+
+func BenchmarkLibPqSelectMultipleRowsPrepared(b *testing.B) {
+	setup(b)
+	stmt, err := libpq.Prepare(selectMultiplePeopleSQL)
 	if err != nil {
 		b.Fatalf("Prepare failed: %v", err)
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/stdlib"
+	_ "github.com/jgallagher/go-libpq"
 	_ "github.com/lib/pq"
 	"io"
 	"math/rand"
@@ -64,6 +65,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	libpq, err := openLibPq(connPoolConfig)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "openLibPq failed: %v", err)
+		os.Exit(1)
+	}
+	libpqStmt, err := libpq.Prepare(selectPeopleJSONSQL)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "libpq.Prepare failed: %v", err)
+		os.Exit(1)
+	}
+
 	http.HandleFunc("/people/pgx-native", func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -97,6 +109,21 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 
 		row := pqStmt.QueryRow(rand.Int31n(10000))
+		var json string
+		err := row.Scan(&json)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		io.WriteString(w, json)
+	})
+
+	http.HandleFunc("/people/libpq", func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		row := libpqStmt.QueryRow(rand.Int31n(10000))
 		var json string
 		err := row.Scan(&json)
 		if err != nil {
@@ -190,4 +217,17 @@ func openPq(config pgx.ConnPoolConfig) (*sql.DB, error) {
 	}
 
 	return sql.Open("postgres", strings.Join(options, " "))
+}
+
+func openLibPq(config pgx.ConnPoolConfig) (*sql.DB, error) {
+	var options []string
+	options = append(options, fmt.Sprintf("host=%s", config.Host))
+	options = append(options, fmt.Sprintf("user=%s", config.User))
+	options = append(options, fmt.Sprintf("dbname=%s", config.Database))
+	options = append(options, "sslmode=disable")
+	if config.Password != "" {
+		options = append(options, fmt.Sprintf("password=%s", config.Password))
+	}
+
+	return sql.Open("libpq", strings.Join(options, " "))
 }
