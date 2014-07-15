@@ -255,7 +255,7 @@ func benchmarkPgxNativeSelectSingleRow(b *testing.B, sql string) {
 		var p person
 		id := randPersonIDs[i%len(randPersonIDs)]
 
-		rows, _ := pgxPool.Query("selectPerson", id)
+		rows, _ := pgxPool.Query(sql, id)
 		for rows.Next() {
 			rows.Scan(&p.id, &p.firstName, &p.lastName, &p.sex, &p.birthDate, &p.weight, &p.height, &p.updateTime)
 		}
