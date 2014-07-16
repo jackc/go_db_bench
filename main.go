@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	gopg "github.com/go-pg/pg"
 	"github.com/jackc/pgx"
 	"github.com/jackc/pgx/stdlib"
 	_ "github.com/lib/pq"
@@ -10,6 +11,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -64,6 +66,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	pg, err := openPg(connPoolConfig)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "openPg failed: %v", err)
+		os.Exit(1)
+	}
+	pgStmt, err := pg.Prepare(selectPeopleJSONSQL)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "pg.Prepare failed: %v", err)
+		os.Exit(1)
+	}
+
 	http.HandleFunc("/people/pgx-native", func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -105,6 +118,20 @@ func main() {
 			return
 		}
 
+		io.WriteString(w, json)
+	})
+
+	http.HandleFunc("/people/pg", func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		var json string
+
+		_, err := pgStmt.QueryOne(&json, rand.Int31n(10000))
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
 		io.WriteString(w, json)
 	})
 
@@ -190,4 +217,23 @@ func openPq(config pgx.ConnPoolConfig) (*sql.DB, error) {
 	}
 
 	return sql.Open("postgres", strings.Join(options, " "))
+}
+
+func openPg(config pgx.ConnPoolConfig) (*gopg.DB, error) {
+	var options gopg.Options
+
+	options.Host = config.Host
+	_, err := os.Stat(options.Host)
+	if err == nil {
+		options.Network = "unix"
+		if !strings.Contains(options.Host, "/.s.PGSQL.") {
+			options.Host = filepath.Join(options.Host, ".s.PGSQL.5432")
+		}
+	}
+
+	options.User = config.User
+	options.Database = config.Database
+	options.Password = config.Password
+
+	return gopg.Connect(&options), nil
 }
