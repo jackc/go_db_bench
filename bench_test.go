@@ -24,20 +24,20 @@ var selectPersonNameSQL = `select first_name from person where id=$1`
 var selectPersonNameSQLQuestionMark = `select first_name from person where id=?`
 
 var selectPersonSQL = `
-select id, first_name, last_name, Sex, birth_date, Weight, Height, update_time
+select id, first_name, last_name, sex, birth_date, weight, height, update_time
 from person
 where id=$1`
 var selectPersonSQLQuestionMark = `
-select id, first_name, last_name, Sex, birth_date, Weight, Height, update_time
+select id, first_name, last_name, sex, birth_date, weight, height, update_time
 from person
 where id=?`
 
 var selectMultiplePeopleSQL = `
-select id, first_name, last_name, Sex, birth_date, Weight, Height, update_time
+select id, first_name, last_name, sex, birth_date, weight, height, update_time
 from person
 where id between $1 and $1 + 24`
 var selectMultiplePeopleSQLQuestionMark = `
-select id, first_name, last_name, Sex, birth_date, Weight, Height, update_time
+select id, first_name, last_name, sex, birth_date, weight, height, update_time
 from person
 where id between ? and ? + 24`
 
