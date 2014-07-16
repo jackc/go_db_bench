@@ -599,7 +599,7 @@ func BenchmarkPgxStdlibSelectMultipleRowsPrepared(b *testing.B) {
 
 func BenchmarkPgSelectMultipleRowsPrepared(b *testing.B) {
 	setup(b)
-	stmt, err := pq.Prepare(selectMultiplePeopleSQL)
+	stmt, err := pg.Prepare(selectMultiplePeopleSQL)
 	if err != nil {
 		b.Fatalf("Prepare failed: %v", err)
 	}
