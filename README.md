@@ -1,7 +1,7 @@
 # Go Database Benchmark
 
 This tests the performance of [pgx native](https://github.com/jackc/pgx), [pgx
-through database/sql](https://github.com/jackc/pgx/stdlib),
+through database/sql](https://github.com/jackc/pgx/tree/master/stdlib),
 [pq](https://github.com/lib/pq) through database/sql, [go-pg](github.com/go-
 pg/pg),  and theoretical maximum PostgreSQL performance.
 
