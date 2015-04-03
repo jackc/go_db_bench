@@ -154,17 +154,14 @@ func setup(b *testing.B) {
 	})
 }
 
-func BenchmarkPgxNativeSelectSingleValueUnprepared(b *testing.B) {
+func BenchmarkPgxNativeSelectSingleValue(b *testing.B) {
 	setup(b)
 	b.ResetTimer()
-	benchmarkPgxNativeSelectSingleValue(b, selectPersonNameSQL)
-}
 
-func benchmarkPgxNativeSelectSingleValue(b *testing.B, sql string) {
 	for i := 0; i < b.N; i++ {
 		id := randPersonIDs[i%len(randPersonIDs)]
 		var firstName string
-		err := pgxPool.QueryRow(sql, id).Scan(&firstName)
+		err := pgxPool.QueryRow("selectPersonName", id).Scan(&firstName)
 		if err != nil {
 			b.Fatalf("pgxPool.QueryRow Scan failed: %v", err)
 		}
@@ -174,59 +171,7 @@ func benchmarkPgxNativeSelectSingleValue(b *testing.B, sql string) {
 	}
 }
 
-func BenchmarkPgxStdlibSelectSingleValueUnprepared(b *testing.B) {
-	setup(b)
-	b.ResetTimer()
-	benchmarkSelectSingleValueUnprepared(b, pgxStdlib)
-}
-
-func BenchmarkPgSelectSingleValueUnprepared(b *testing.B) {
-	setup(b)
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		var person struct {
-			FirstName string
-		}
-		id := randPersonIDs[i%len(randPersonIDs)]
-		_, err := pg.QueryOne(&person, selectPersonNameSQLQuestionMark, id)
-		if err != nil {
-			b.Fatalf("pg.QueryOne failed: %v", err)
-		}
-		if len(person.FirstName) == 0 {
-			b.Fatal("FirstName was empty")
-		}
-	}
-}
-
-func BenchmarkPqSelectSingleValueUnprepared(b *testing.B) {
-	setup(b)
-	b.ResetTimer()
-	benchmarkSelectSingleValueUnprepared(b, pq)
-}
-
-func benchmarkSelectSingleValueUnprepared(b *testing.B, db *sql.DB) {
-	for i := 0; i < b.N; i++ {
-		id := randPersonIDs[i%len(randPersonIDs)]
-		row := db.QueryRow(selectPersonNameSQL, id)
-		var firstName string
-		err := row.Scan(&firstName)
-		if err != nil {
-			b.Fatalf("row.Scan failed: %v", err)
-		}
-		if len(firstName) == 0 {
-			b.Fatal("FirstName was empty")
-		}
-	}
-}
-
-func BenchmarkPgxNativeSelectSingleValuePrepared(b *testing.B) {
-	setup(b)
-	b.ResetTimer()
-	benchmarkPgxNativeSelectSingleValue(b, "selectPersonName")
-}
-
-func BenchmarkPgxStdlibSelectSingleValuePrepared(b *testing.B) {
+func BenchmarkPgxStdlibSelectSingleValue(b *testing.B) {
 	setup(b)
 	stmt, err := pgxStdlib.Prepare(selectPersonNameSQL)
 	if err != nil {
@@ -235,10 +180,10 @@ func BenchmarkPgxStdlibSelectSingleValuePrepared(b *testing.B) {
 	defer stmt.Close()
 
 	b.ResetTimer()
-	benchmarkSelectSingleValuePrepared(b, stmt)
+	benchmarkSelectSingleValue(b, stmt)
 }
 
-func BenchmarkPgSelectSingleValuePrepared(b *testing.B) {
+func BenchmarkPgSelectSingleValue(b *testing.B) {
 	setup(b)
 	stmt, err := pg.Prepare(selectPersonNameSQL)
 	if err != nil {
@@ -262,7 +207,7 @@ func BenchmarkPgSelectSingleValuePrepared(b *testing.B) {
 	}
 }
 
-func BenchmarkPqSelectSingleValuePrepared(b *testing.B) {
+func BenchmarkPqSelectSingleValue(b *testing.B) {
 	setup(b)
 	stmt, err := pq.Prepare(selectPersonNameSQL)
 	if err != nil {
@@ -271,10 +216,10 @@ func BenchmarkPqSelectSingleValuePrepared(b *testing.B) {
 	defer stmt.Close()
 
 	b.ResetTimer()
-	benchmarkSelectSingleValuePrepared(b, stmt)
+	benchmarkSelectSingleValue(b, stmt)
 }
 
-func benchmarkSelectSingleValuePrepared(b *testing.B, stmt *sql.Stmt) {
+func benchmarkSelectSingleValue(b *testing.B, stmt *sql.Stmt) {
 	for i := 0; i < b.N; i++ {
 		id := randPersonIDs[i%len(randPersonIDs)]
 		row := stmt.QueryRow(id)
@@ -289,7 +234,7 @@ func benchmarkSelectSingleValuePrepared(b *testing.B, stmt *sql.Stmt) {
 	}
 }
 
-func BenchmarkRawSelectSingleValuePrepared(b *testing.B) {
+func BenchmarkRawSelectSingleValue(b *testing.B) {
 	setup(b)
 
 	txBufs := make([][]byte, len(randPersonIDs))
@@ -297,7 +242,7 @@ func BenchmarkRawSelectSingleValuePrepared(b *testing.B) {
 		var err error
 		txBufs[i], err = rawConn.BuildPreparedQueryBuf(rawSelectPersonNameStmt, personID)
 		if err != nil {
-			b.Fatalf("rawConn.BuildPreparedQueryBuf failed: %v", err)
+			b.Fatalf("rawConn.BuildQueryBuf failed: %v", err)
 		}
 	}
 
@@ -310,29 +255,6 @@ func BenchmarkRawSelectSingleValuePrepared(b *testing.B) {
 		}
 
 		rxRawUntilReady(b)
-	}
-}
-
-func BenchmarkPgxNativeSelectSingleRowUnprepared(b *testing.B) {
-	setup(b)
-	b.ResetTimer()
-	benchmarkPgxNativeSelectSingleRow(b, selectPersonSQL)
-}
-
-func benchmarkPgxNativeSelectSingleRow(b *testing.B, sql string) {
-	for i := 0; i < b.N; i++ {
-		var p person
-		id := randPersonIDs[i%len(randPersonIDs)]
-
-		rows, _ := pgxPool.Query(sql, id)
-		for rows.Next() {
-			rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
-		}
-		if rows.Err() != nil {
-			b.Fatalf("pgxPool.Query failed: %v", rows.Err())
-		}
-
-		checkPersonWasFilled(b, p)
 	}
 }
 
@@ -364,55 +286,27 @@ func checkPersonWasFilled(b *testing.B, p person) {
 	}
 }
 
-func BenchmarkPgxStdlibSelectSingleRowUnprepared(b *testing.B) {
-	setup(b)
-	b.ResetTimer()
-	benchmarkSelectSingleRowUnprepared(b, pgxStdlib)
-}
-
-func BenchmarkPgSelectSingleRowUnprepared(b *testing.B) {
+func BenchmarkPgxNativeSelectSingleRow(b *testing.B) {
 	setup(b)
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		var p person
 		id := randPersonIDs[i%len(randPersonIDs)]
-		_, err := pg.QueryOne(&p, selectPersonSQLQuestionMark, id)
-		if err != nil {
-			b.Fatalf("pg.QueryOne failed: %v", err)
+
+		rows, _ := pgxPool.Query("selectPerson", id)
+		for rows.Next() {
+			rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
+		}
+		if rows.Err() != nil {
+			b.Fatalf("pgxPool.Query failed: %v", rows.Err())
 		}
 
 		checkPersonWasFilled(b, p)
 	}
 }
 
-func BenchmarkPqSelectSingleRowUnprepared(b *testing.B) {
-	setup(b)
-	b.ResetTimer()
-	benchmarkSelectSingleRowUnprepared(b, pq)
-}
-
-func benchmarkSelectSingleRowUnprepared(b *testing.B, db *sql.DB) {
-	for i := 0; i < b.N; i++ {
-		id := randPersonIDs[i%len(randPersonIDs)]
-		row := db.QueryRow(selectPersonSQL, id)
-		var p person
-		err := row.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
-		if err != nil {
-			b.Fatalf("row.Scan failed: %v", err)
-		}
-
-		checkPersonWasFilled(b, p)
-	}
-}
-
-func BenchmarkPgxNativeSelectSingleRowPrepared(b *testing.B) {
-	setup(b)
-	b.ResetTimer()
-	benchmarkPgxNativeSelectSingleRow(b, "selectPerson")
-}
-
-func BenchmarkPgxStdlibSelectSingleRowPrepared(b *testing.B) {
+func BenchmarkPgxStdlibSelectSingleRow(b *testing.B) {
 	setup(b)
 	stmt, err := pgxStdlib.Prepare(selectPersonSQL)
 	if err != nil {
@@ -421,10 +315,10 @@ func BenchmarkPgxStdlibSelectSingleRowPrepared(b *testing.B) {
 	defer stmt.Close()
 
 	b.ResetTimer()
-	benchmarkSelectSingleRowPrepared(b, stmt)
+	benchmarkSelectSingleRow(b, stmt)
 }
 
-func BenchmarkPgSelectSingleRowPrepared(b *testing.B) {
+func BenchmarkPgSelectSingleRow(b *testing.B) {
 	setup(b)
 	stmt, err := pg.Prepare(selectPersonSQL)
 	if err != nil {
@@ -445,7 +339,7 @@ func BenchmarkPgSelectSingleRowPrepared(b *testing.B) {
 	}
 }
 
-func BenchmarkPqSelectSingleRowPrepared(b *testing.B) {
+func BenchmarkPqSelectSingleRow(b *testing.B) {
 	setup(b)
 	stmt, err := pq.Prepare(selectPersonSQL)
 	if err != nil {
@@ -454,10 +348,10 @@ func BenchmarkPqSelectSingleRowPrepared(b *testing.B) {
 	defer stmt.Close()
 
 	b.ResetTimer()
-	benchmarkSelectSingleRowPrepared(b, stmt)
+	benchmarkSelectSingleRow(b, stmt)
 }
 
-func benchmarkSelectSingleRowPrepared(b *testing.B, stmt *sql.Stmt) {
+func benchmarkSelectSingleRow(b *testing.B, stmt *sql.Stmt) {
 	for i := 0; i < b.N; i++ {
 		id := randPersonIDs[i%len(randPersonIDs)]
 		row := stmt.QueryRow(id)
@@ -471,7 +365,7 @@ func benchmarkSelectSingleRowPrepared(b *testing.B, stmt *sql.Stmt) {
 	}
 }
 
-func BenchmarkRawSelectSingleRowPrepared(b *testing.B) {
+func BenchmarkRawSelectSingleRow(b *testing.B) {
 	setup(b)
 
 	txBufs := make([][]byte, len(randPersonIDs))
@@ -495,18 +389,15 @@ func BenchmarkRawSelectSingleRowPrepared(b *testing.B) {
 	}
 }
 
-func BenchmarkPgxNativeSelectMultipleRowsUnprepared(b *testing.B) {
+func BenchmarkPgxNativeSelectMultipleRows(b *testing.B) {
 	setup(b)
 	b.ResetTimer()
-	benchmarkPgxNativeSelectMultipleRows(b, selectMultiplePeopleSQL)
-}
 
-func benchmarkPgxNativeSelectMultipleRows(b *testing.B, sql string) {
 	for i := 0; i < b.N; i++ {
 		var people []person
 		id := randPersonIDs[i%len(randPersonIDs)]
 
-		rows, _ := pgxPool.Query(sql, id)
+		rows, _ := pgxPool.Query("selectMultiplePeople", id)
 		for rows.Next() {
 			var p person
 			rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
@@ -522,71 +413,7 @@ func benchmarkPgxNativeSelectMultipleRows(b *testing.B, sql string) {
 	}
 }
 
-func BenchmarkPgxStdlibSelectMultipleRowsUnprepared(b *testing.B) {
-	setup(b)
-	b.ResetTimer()
-	benchmarkSelectMultipleRowsUnprepared(b, pgxStdlib)
-}
-
-func BenchmarkPgSelectMultipleRowsUnprepared(b *testing.B) {
-	setup(b)
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		var people People
-		id := randPersonIDs[i%len(randPersonIDs)]
-		_, err := pg.Query(&people, selectMultiplePeopleSQLQuestionMark, id, id)
-		if err != nil {
-			b.Fatalf("pg.Query failed: %v", err)
-		}
-
-		for _, p := range people {
-			checkPersonWasFilled(b, *p)
-		}
-	}
-}
-
-func BenchmarkPqSelectMultipleRowsUnprepared(b *testing.B) {
-	setup(b)
-	b.ResetTimer()
-	benchmarkSelectMultipleRowsUnprepared(b, pq)
-}
-
-func benchmarkSelectMultipleRowsUnprepared(b *testing.B, db *sql.DB) {
-	for i := 0; i < b.N; i++ {
-		var people []person
-		id := randPersonIDs[i%len(randPersonIDs)]
-		rows, err := db.Query(selectMultiplePeopleSQL, id)
-		if err != nil {
-			b.Fatalf("db.Query failed: %v", err)
-		}
-
-		for rows.Next() {
-			var p person
-			err := rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
-			if err != nil {
-				b.Fatalf("rows.Scan failed: %v", err)
-			}
-			people = append(people, p)
-		}
-
-		if rows.Err() != nil {
-			b.Fatalf("rows.Err() returned an error: %v", err)
-		}
-
-		for _, p := range people {
-			checkPersonWasFilled(b, p)
-		}
-	}
-}
-
-func BenchmarkPgxNativeSelectMultipleRowsPrepared(b *testing.B) {
-	setup(b)
-	b.ResetTimer()
-	benchmarkPgxNativeSelectMultipleRows(b, "selectMultiplePeople")
-}
-
-func BenchmarkPgxStdlibSelectMultipleRowsPrepared(b *testing.B) {
+func BenchmarkPgxStdlibSelectMultipleRows(b *testing.B) {
 	setup(b)
 	stmt, err := pgxStdlib.Prepare(selectMultiplePeopleSQL)
 	if err != nil {
@@ -594,10 +421,10 @@ func BenchmarkPgxStdlibSelectMultipleRowsPrepared(b *testing.B) {
 	}
 	defer stmt.Close()
 	b.ResetTimer()
-	benchmarkSelectMultipleRowsPrepared(b, stmt)
+	benchmarkSelectMultipleRows(b, stmt)
 }
 
-func BenchmarkPgSelectMultipleRowsPrepared(b *testing.B) {
+func BenchmarkPgSelectMultipleRows(b *testing.B) {
 	setup(b)
 	stmt, err := pg.Prepare(selectMultiplePeopleSQL)
 	if err != nil {
@@ -619,7 +446,7 @@ func BenchmarkPgSelectMultipleRowsPrepared(b *testing.B) {
 	}
 }
 
-func BenchmarkPqSelectMultipleRowsPrepared(b *testing.B) {
+func BenchmarkPqSelectMultipleRows(b *testing.B) {
 	setup(b)
 	stmt, err := pq.Prepare(selectMultiplePeopleSQL)
 	if err != nil {
@@ -628,10 +455,10 @@ func BenchmarkPqSelectMultipleRowsPrepared(b *testing.B) {
 	defer stmt.Close()
 
 	b.ResetTimer()
-	benchmarkSelectMultipleRowsPrepared(b, stmt)
+	benchmarkSelectMultipleRows(b, stmt)
 }
 
-func benchmarkSelectMultipleRowsPrepared(b *testing.B, stmt *sql.Stmt) {
+func benchmarkSelectMultipleRows(b *testing.B, stmt *sql.Stmt) {
 	for i := 0; i < b.N; i++ {
 		var people []person
 		id := randPersonIDs[i%len(randPersonIDs)]
@@ -659,7 +486,7 @@ func benchmarkSelectMultipleRowsPrepared(b *testing.B, stmt *sql.Stmt) {
 	}
 }
 
-func BenchmarkRawSelectMultipleRowsPrepared(b *testing.B) {
+func BenchmarkRawSelectMultipleRows(b *testing.B) {
 	setup(b)
 
 	txBufs := make([][]byte, len(randPersonIDs))
