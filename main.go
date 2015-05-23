@@ -22,9 +22,13 @@ where id between $1 and $1 + 25
 `
 
 func main() {
-	connPoolConfig := extractConfig()
+	connPoolConfig, err := extractConfig()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "extractConfig failed:", err)
+		os.Exit(1)
+	}
 
-	err := loadTestData(connPoolConfig)
+	err = loadTestData(connPoolConfig)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "loadTestData failed:", err)
 		os.Exit(1)
@@ -143,29 +147,30 @@ func main() {
 	}
 }
 
-func extractConfig() pgx.ConnPoolConfig {
-	var config pgx.ConnPoolConfig
+func extractConfig() (config pgx.ConnPoolConfig, err error) {
+	config.ConnConfig, err = pgx.ParseEnvLibpq()
+	if err != nil {
+		return config, err
+	}
 
-	config.Host = os.Getenv("GO_DB_BENCH_PG_HOST")
 	if config.Host == "" {
 		config.Host = "localhost"
 	}
 
-	config.User = os.Getenv("GO_DB_BENCH_PG_USER")
 	if config.User == "" {
 		config.User = os.Getenv("USER")
 	}
 
-	config.Password = os.Getenv("GO_DB_BENCH_PG_PASSWORD")
-
-	config.Database = os.Getenv("GO_DB_BENCH_PG_DATABASE")
 	if config.Database == "" {
 		config.Database = "go_db_bench"
 	}
 
+	config.TLSConfig = nil
+	config.UseFallbackTLS = false
+
 	config.MaxConnections = 10
 
-	return config
+	return config, nil
 }
 
 func loadTestData(config pgx.ConnPoolConfig) error {

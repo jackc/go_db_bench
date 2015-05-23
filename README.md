@@ -8,12 +8,12 @@ procedures.
 
 ## Configuration
 
-go_db_bench reads its configuration from the environment.
+go_db_bench reads its configuration from the environment:
 
-    GO_DB_BENCH_PG_HOST - defaults to localhost
-    GO_DB_BENCH_PG_USER - default to OS user
-    GO_DB_BENCH_PG_PASSWORD - defaults to empty string
-    GO_DB_BENCH_PG_DATABASE - defaults to go_db_bench
+    PGHOST - defaults to localhost
+    PGUSER - default to OS user
+    PGPASSWORD - defaults to empty string
+    PGDATABASE - defaults to go_db_bench
 
 ## Core Benchmarks
 
@@ -21,7 +21,7 @@ go_db_bench includes tests selecting one value, one row, and multiple rows.
 
 Example execution:
 
-    GO_DB_BENCH_PG_HOST=/private/tmp go test -test.bench=. -test.benchmem
+    PGHOST=/private/tmp go test -test.bench=. -test.benchmem
 
 ## HTTP Benchmarks
 
@@ -31,7 +31,7 @@ real-world environment.
 
 Example execution:
 
-    go build && GO_DB_BENCH_PG_HOST=/private/tmp ./go_db_bench
+    go build && PGHOST=/private/tmp ./go_db_bench
 
 It exposes the following endpoints:
 

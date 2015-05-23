@@ -68,7 +68,10 @@ func (people *People) New() interface{} {
 
 func setup(b *testing.B) {
 	setupOnce.Do(func() {
-		config := extractConfig()
+		config, err := extractConfig()
+		if err != nil {
+			b.Fatalf("extractConfig failed: %v", err)
+		}
 
 		config.AfterConnect = func(conn *pgx.Conn) error {
 			_, err := conn.Prepare("selectPersonName", selectPersonNameSQL)
@@ -89,7 +92,7 @@ func setup(b *testing.B) {
 			return nil
 		}
 
-		err := loadTestData(config)
+		err = loadTestData(config)
 		if err != nil {
 			b.Fatalf("loadTestData failed: %v", err)
 		}
