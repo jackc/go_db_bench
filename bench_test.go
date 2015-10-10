@@ -2,12 +2,14 @@ package main
 
 import (
 	"database/sql"
-	gopg "github.com/go-pg/pg"
-	"github.com/jackc/go_db_bench/raw"
-	"github.com/jackc/pgx"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/jackc/go_db_bench/raw"
+	"github.com/jackc/pgx"
+	gopg "gopkg.in/pg.v3"
 )
 
 var (
@@ -58,12 +60,42 @@ type person struct {
 	UpdateTime time.Time
 }
 
-type People []*person
+// Implements pg.ColumnLoader.
+var _ gopg.ColumnLoader = (*person)(nil)
 
-func (people *People) New() interface{} {
-	u := &person{}
-	*people = append(*people, u)
-	return u
+func (p *person) LoadColumn(colIdx int, colName string, b []byte) error {
+	switch colName {
+	case "id":
+		return gopg.Decode(&p.Id, b)
+	case "first_name":
+		return gopg.Decode(&p.FirstName, b)
+	case "last_name":
+		return gopg.Decode(&p.LastName, b)
+	case "sex":
+		return gopg.Decode(&p.Sex, b)
+	case "birth_date":
+		return gopg.Decode(&p.BirthDate, b)
+	case "weight":
+		return gopg.Decode(&p.Weight, b)
+	case "height":
+		return gopg.Decode(&p.Height, b)
+	case "update_time":
+		return gopg.Decode(&p.UpdateTime, b)
+	default:
+		panic(fmt.Sprintf("unsupported column: %d", colName))
+	}
+}
+
+type People struct {
+	C []person
+}
+
+// Implements pg.Collection.
+var _ gopg.Collection = (*People)(nil)
+
+func (people *People) NewRecord() interface{} {
+	people.C = append(people.C, person{})
+	return &people.C[len(people.C)-1]
 }
 
 func setup(b *testing.B) {
@@ -159,8 +191,8 @@ func setup(b *testing.B) {
 
 func BenchmarkPgxNativeSelectSingleValue(b *testing.B) {
 	setup(b)
-	b.ResetTimer()
 
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		id := randPersonIDs[i%len(randPersonIDs)]
 		var firstName string
@@ -182,29 +214,27 @@ func BenchmarkPgxStdlibSelectSingleValue(b *testing.B) {
 	}
 	defer stmt.Close()
 
-	b.ResetTimer()
 	benchmarkSelectSingleValue(b, stmt)
 }
 
 func BenchmarkPgSelectSingleValue(b *testing.B) {
 	setup(b)
+
 	stmt, err := pg.Prepare(selectPersonNameSQL)
 	if err != nil {
 		b.Fatalf("Prepare failed: %v", err)
 	}
 	defer stmt.Close()
-	b.ResetTimer()
 
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var person struct {
-			FirstName string
-		}
+		var firstName string
 		id := randPersonIDs[i%len(randPersonIDs)]
-		_, err := stmt.QueryOne(&person, id)
+		_, err := stmt.QueryOne(gopg.LoadInto(&firstName), id)
 		if err != nil {
 			b.Fatalf("stmt.QueryOne failed: %v", err)
 		}
-		if len(person.FirstName) == 0 {
+		if len(firstName) == 0 {
 			b.Fatal("FirstName was empty")
 		}
 	}
@@ -218,11 +248,11 @@ func BenchmarkPqSelectSingleValue(b *testing.B) {
 	}
 	defer stmt.Close()
 
-	b.ResetTimer()
 	benchmarkSelectSingleValue(b, stmt)
 }
 
 func benchmarkSelectSingleValue(b *testing.B, stmt *sql.Stmt) {
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		id := randPersonIDs[i%len(randPersonIDs)]
 		row := stmt.QueryRow(id)
@@ -240,6 +270,8 @@ func benchmarkSelectSingleValue(b *testing.B, stmt *sql.Stmt) {
 func BenchmarkRawSelectSingleValue(b *testing.B) {
 	setup(b)
 
+	b.ResetTimer()
+
 	txBufs := make([][]byte, len(randPersonIDs))
 	for i, personID := range randPersonIDs {
 		var err error
@@ -249,7 +281,6 @@ func BenchmarkRawSelectSingleValue(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		txBuf := txBufs[i%len(txBufs)]
 		_, err := rawConn.Conn().Write(txBuf)
@@ -291,8 +322,8 @@ func checkPersonWasFilled(b *testing.B, p person) {
 
 func BenchmarkPgxNativeSelectSingleRow(b *testing.B) {
 	setup(b)
-	b.ResetTimer()
 
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var p person
 		id := randPersonIDs[i%len(randPersonIDs)]
@@ -317,19 +348,19 @@ func BenchmarkPgxStdlibSelectSingleRow(b *testing.B) {
 	}
 	defer stmt.Close()
 
-	b.ResetTimer()
 	benchmarkSelectSingleRow(b, stmt)
 }
 
 func BenchmarkPgSelectSingleRow(b *testing.B) {
 	setup(b)
+
 	stmt, err := pg.Prepare(selectPersonSQL)
 	if err != nil {
 		b.Fatalf("Prepare failed: %v", err)
 	}
 	defer stmt.Close()
-	b.ResetTimer()
 
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var p person
 		id := randPersonIDs[i%len(randPersonIDs)]
@@ -350,11 +381,11 @@ func BenchmarkPqSelectSingleRow(b *testing.B) {
 	}
 	defer stmt.Close()
 
-	b.ResetTimer()
 	benchmarkSelectSingleRow(b, stmt)
 }
 
 func benchmarkSelectSingleRow(b *testing.B, stmt *sql.Stmt) {
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		id := randPersonIDs[i%len(randPersonIDs)]
 		row := stmt.QueryRow(id)
@@ -370,6 +401,7 @@ func benchmarkSelectSingleRow(b *testing.B, stmt *sql.Stmt) {
 
 func BenchmarkRawSelectSingleRow(b *testing.B) {
 	setup(b)
+	b.ResetTimer()
 
 	txBufs := make([][]byte, len(randPersonIDs))
 	for i, personID := range randPersonIDs {
@@ -380,7 +412,6 @@ func BenchmarkRawSelectSingleRow(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		txBuf := txBufs[i%len(txBufs)]
 		_, err := rawConn.Conn().Write(txBuf)
@@ -394,8 +425,8 @@ func BenchmarkRawSelectSingleRow(b *testing.B) {
 
 func BenchmarkPgxNativeSelectMultipleRows(b *testing.B) {
 	setup(b)
-	b.ResetTimer()
 
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var people []person
 		id := randPersonIDs[i%len(randPersonIDs)]
@@ -418,23 +449,26 @@ func BenchmarkPgxNativeSelectMultipleRows(b *testing.B) {
 
 func BenchmarkPgxStdlibSelectMultipleRows(b *testing.B) {
 	setup(b)
+
 	stmt, err := pgxStdlib.Prepare(selectMultiplePeopleSQL)
 	if err != nil {
 		b.Fatalf("Prepare failed: %v", err)
 	}
 	defer stmt.Close()
-	b.ResetTimer()
+
 	benchmarkSelectMultipleRows(b, stmt)
 }
 
 func BenchmarkPgSelectMultipleRows(b *testing.B) {
 	setup(b)
+
 	stmt, err := pg.Prepare(selectMultiplePeopleSQL)
 	if err != nil {
 		b.Fatalf("Prepare failed: %v", err)
 	}
-	b.ResetTimer()
+	defer stmt.Close()
 
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var people People
 		id := randPersonIDs[i%len(randPersonIDs)]
@@ -443,25 +477,45 @@ func BenchmarkPgSelectMultipleRows(b *testing.B) {
 			b.Fatalf("stmt.Query failed: %v", err)
 		}
 
-		for _, p := range people {
-			checkPersonWasFilled(b, *p)
+		for i, _ := range people.C {
+			checkPersonWasFilled(b, people.C[i])
 		}
 	}
 }
 
-func BenchmarkPqSelectMultipleRows(b *testing.B) {
+func BenchmarkPgSelectMultipleRowsAndDiscard(b *testing.B) {
 	setup(b)
-	stmt, err := pq.Prepare(selectMultiplePeopleSQL)
+
+	stmt, err := pg.Prepare(selectMultiplePeopleSQL)
 	if err != nil {
 		b.Fatalf("Prepare failed: %v", err)
 	}
 	defer stmt.Close()
 
 	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		id := randPersonIDs[i%len(randPersonIDs)]
+		_, err := stmt.Query(gopg.Discard, id)
+		if err != nil {
+			b.Fatalf("stmt.Query failed: %v", err)
+		}
+	}
+}
+
+func BenchmarkPqSelectMultipleRows(b *testing.B) {
+	setup(b)
+
+	stmt, err := pq.Prepare(selectMultiplePeopleSQL)
+	if err != nil {
+		b.Fatalf("Prepare failed: %v", err)
+	}
+	defer stmt.Close()
+
 	benchmarkSelectMultipleRows(b, stmt)
 }
 
 func benchmarkSelectMultipleRows(b *testing.B, stmt *sql.Stmt) {
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var people []person
 		id := randPersonIDs[i%len(randPersonIDs)]
@@ -492,6 +546,8 @@ func benchmarkSelectMultipleRows(b *testing.B, stmt *sql.Stmt) {
 func BenchmarkRawSelectMultipleRows(b *testing.B) {
 	setup(b)
 
+	b.ResetTimer()
+
 	txBufs := make([][]byte, len(randPersonIDs))
 	for i, personID := range randPersonIDs {
 		var err error
@@ -501,7 +557,6 @@ func BenchmarkRawSelectMultipleRows(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		txBuf := txBufs[i%len(txBufs)]
 		_, err := rawConn.Conn().Write(txBuf)

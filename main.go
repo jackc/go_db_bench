@@ -3,16 +3,17 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	gopg "github.com/go-pg/pg"
-	"github.com/jackc/pgx"
-	"github.com/jackc/pgx/stdlib"
-	_ "github.com/lib/pq"
 	"io"
 	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/jackc/pgx"
+	"github.com/jackc/pgx/stdlib"
+	_ "github.com/lib/pq"
+	gopg "gopkg.in/pg.v3"
 )
 
 var selectPeopleJSONSQL = `
