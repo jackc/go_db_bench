@@ -432,8 +432,8 @@ func BenchmarkPgxNativeSelectMultipleRows(b *testing.B) {
 		id := randPersonIDs[i%len(randPersonIDs)]
 
 		rows, _ := pgxPool.Query("selectMultiplePeople", id)
+		var p person
 		for rows.Next() {
-			var p person
 			rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
 			people = append(people, p)
 		}
@@ -524,8 +524,8 @@ func benchmarkSelectMultipleRows(b *testing.B, stmt *sql.Stmt) {
 			b.Fatalf("db.Query failed: %v", err)
 		}
 
+		var p person
 		for rows.Next() {
-			var p person
 			err := rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
 			if err != nil {
 				b.Fatalf("rows.Scan failed: %v", err)
