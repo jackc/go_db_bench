@@ -506,21 +506,19 @@ func BenchmarkPgxNativeSelectMultipleRows(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var people []person
 		id := randPersonIDs[i%len(randPersonIDs)]
 
 		rows, _ := pgxPool.Query("selectMultiplePeople", id)
 		var p person
 		for rows.Next() {
-			rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
-			people = append(people, p)
+			err := rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
+			if err != nil {
+				b.Fatalf("rows.Scan failed: %v", err)
+			}
+			checkPersonWasFilled(b, p)
 		}
 		if rows.Err() != nil {
 			b.Fatalf("pgxPool.Query failed: %v", rows.Err())
-		}
-
-		for _, p := range people {
-			checkPersonWasFilled(b, p)
 		}
 	}
 }
@@ -537,7 +535,10 @@ func BenchmarkPgxStdlibSelectMultipleRows(b *testing.B) {
 	benchmarkSelectMultipleRows(b, stmt)
 }
 
-func BenchmarkPgSelectMultipleRows(b *testing.B) {
+// This benchmark is different than the other multiple rows in that it collects
+// all rows where as the others process and discard. So it is not apples-to-
+// apples for *SelectMultipleRows*.
+func BenchmarkPgSelectMultipleRowsCollect(b *testing.B) {
 	setup(b)
 
 	stmt, err := pg.Prepare(selectMultiplePeopleSQL)
@@ -595,7 +596,6 @@ func BenchmarkPqSelectMultipleRows(b *testing.B) {
 func benchmarkSelectMultipleRows(b *testing.B, stmt *sql.Stmt) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var people []person
 		id := randPersonIDs[i%len(randPersonIDs)]
 		rows, err := stmt.Query(id)
 		if err != nil {
@@ -608,15 +608,11 @@ func benchmarkSelectMultipleRows(b *testing.B, stmt *sql.Stmt) {
 			if err != nil {
 				b.Fatalf("rows.Scan failed: %v", err)
 			}
-			people = append(people, p)
+			checkPersonWasFilled(b, p)
 		}
 
 		if rows.Err() != nil {
 			b.Fatalf("rows.Err() returned an error: %v", err)
-		}
-
-		for _, p := range people {
-			checkPersonWasFilled(b, p)
 		}
 	}
 }
@@ -691,21 +687,19 @@ func BenchmarkPgxNativeSelectMultipleRowsBytes(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var people []personBytes
 		id := randPersonIDs[i%len(randPersonIDs)]
 
 		rows, _ := pgxPool.Query("selectMultiplePeople", id)
 		var p personBytes
 		for rows.Next() {
-			rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
-			people = append(people, p)
+			err := rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
+			if err != nil {
+				b.Fatalf("rows.Scan failed: %v", err)
+			}
+			checkPersonBytesWasFilled(b, p)
 		}
 		if rows.Err() != nil {
 			b.Fatalf("pgxPool.Query failed: %v", rows.Err())
-		}
-
-		for _, p := range people {
-			checkPersonBytesWasFilled(b, p)
 		}
 	}
 }
@@ -737,7 +731,6 @@ func BenchmarkPqSelectMultipleRowsBytes(b *testing.B) {
 func benchmarkSelectMultipleRowsBytes(b *testing.B, stmt *sql.Stmt) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var people []personBytes
 		id := randPersonIDs[i%len(randPersonIDs)]
 		rows, err := stmt.Query(id)
 		if err != nil {
@@ -750,15 +743,11 @@ func benchmarkSelectMultipleRowsBytes(b *testing.B, stmt *sql.Stmt) {
 			if err != nil {
 				b.Fatalf("rows.Scan failed: %v", err)
 			}
-			people = append(people, p)
+			checkPersonBytesWasFilled(b, p)
 		}
 
 		if rows.Err() != nil {
 			b.Fatalf("rows.Err() returned an error: %v", err)
-		}
-
-		for _, p := range people {
-			checkPersonBytesWasFilled(b, p)
 		}
 	}
 }
