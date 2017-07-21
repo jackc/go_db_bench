@@ -1050,48 +1050,6 @@ func benchmarkPgxStdlibSelectLargeTextBytes(b *testing.B, size int) {
 	benchmarkSelectLargeTextBytes(b, stmt, size)
 }
 
-func BenchmarkPgSelectLargeTextBytes1KB(b *testing.B) {
-	benchmarkPgSelectLargeTextBytes(b, 1024)
-}
-
-func BenchmarkPgSelectLargeTextBytes8KB(b *testing.B) {
-	benchmarkPgSelectLargeTextBytes(b, 8*1024)
-}
-
-func BenchmarkPgSelectLargeTextBytes64KB(b *testing.B) {
-	benchmarkPgSelectLargeTextBytes(b, 64*1024)
-}
-
-func BenchmarkPgSelectLargeTextBytes512KB(b *testing.B) {
-	benchmarkPgSelectLargeTextBytes(b, 512*1024)
-}
-
-func BenchmarkPgSelectLargeTextBytes4096KB(b *testing.B) {
-	benchmarkPgSelectLargeTextBytes(b, 4096*1024)
-}
-
-func benchmarkPgSelectLargeTextBytes(b *testing.B, size int) {
-	setup(b)
-
-	stmt, err := pg.Prepare(selectLargeTextSQL)
-	if err != nil {
-		b.Fatalf("Prepare failed: %v", err)
-	}
-	defer stmt.Close()
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		var s []byte
-		_, err := stmt.QueryOne(gopg.LoadInto(&s), size)
-		if err != nil {
-			b.Fatalf("stmt.QueryOne failed: %v", err)
-		}
-		if len(s) != size {
-			b.Fatalf("expected length %v, got %v", size, len(s))
-		}
-	}
-}
-
 func BenchmarkPqSelectLargeTextBytes1KB(b *testing.B) {
 	benchmarkPqSelectLargeTextBytes(b, 1024)
 }
