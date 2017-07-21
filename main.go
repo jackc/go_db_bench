@@ -49,7 +49,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	pgxStdlib, err := openPgxStdlib(connPoolConfig)
+	pgxStdlib, err := openPgxStdlib(connPoolConfig.ConnConfig)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "openPgxNative failed: %v", err)
 		os.Exit(1)
@@ -203,13 +203,10 @@ func openPgxNative(config pgx.ConnPoolConfig) (*pgx.ConnPool, error) {
 	return pgx.NewConnPool(config)
 }
 
-func openPgxStdlib(config pgx.ConnPoolConfig) (*sql.DB, error) {
-	connPool, err := pgx.NewConnPool(config)
-	if err != nil {
-		return nil, err
-	}
-
-	return stdlib.OpenFromConnPool(connPool)
+func openPgxStdlib(config pgx.ConnConfig) (*sql.DB, error) {
+	driverConfig := stdlib.DriverConfig{ConnConfig: config}
+	stdlib.RegisterDriverConfig(&driverConfig)
+	return sql.Open("pgx", driverConfig.ConnectionString(""))
 }
 
 func openPq(config pgx.ConnPoolConfig) (*sql.DB, error) {

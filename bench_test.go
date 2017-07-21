@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"sync"
@@ -153,7 +154,7 @@ func setup(b *testing.B) {
 			b.Fatalf("openPgxNative failed: %v", err)
 		}
 
-		pgxStdlib, err = openPgxStdlib(config)
+		pgxStdlib, err = openPgxStdlib(config.ConnConfig)
 		if err != nil {
 			b.Fatalf("openPgxNative failed: %v", err)
 		}
@@ -748,6 +749,82 @@ func benchmarkSelectMultipleRowsBytes(b *testing.B, stmt *sql.Stmt) {
 
 		if rows.Err() != nil {
 			b.Fatalf("rows.Err() returned an error: %v", err)
+		}
+	}
+}
+
+func BenchmarkPgxNativeSelectBatch3Query(b *testing.B) {
+	setup(b)
+
+	b.ResetTimer()
+	results := make([]string, 3)
+	for i := 0; i < b.N; i++ {
+
+		batch := pgxPool.BeginBatch()
+		for j := range results {
+			batch.Queue("selectLargeText", []interface{}{j}, nil, []int16{pgx.BinaryFormatCode})
+		}
+
+		if err := batch.Send(context.Background(), nil); err != nil {
+			b.Fatal(err)
+		}
+
+		for j := range results {
+			if err := batch.QueryRowResults().Scan(&results[j]); err != nil {
+				b.Fatal(err)
+			}
+		}
+
+		if err := batch.Close(); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkPgxNativeSelectNoBatch3Query(b *testing.B) {
+	setup(b)
+
+	b.ResetTimer()
+	results := make([]string, 3)
+	for i := 0; i < b.N; i++ {
+		for j := range results {
+			if err := pgxPool.QueryRow("selectLargeText", j).Scan(&results[j]); err != nil {
+				b.Fatal(err)
+			}
+		}
+	}
+}
+
+func BenchmarkPgxStdlibSelectNoBatch3Query(b *testing.B) {
+	setup(b)
+	stmt, err := pgxStdlib.Prepare(selectLargeTextSQL)
+	if err != nil {
+		b.Fatalf("Prepare failed: %v", err)
+	}
+	defer stmt.Close()
+
+	benchmarkSelectNoBatch3Query(b, stmt)
+}
+
+func BenchmarkPqSelectNoBatch3Query(b *testing.B) {
+	setup(b)
+	stmt, err := pq.Prepare(selectLargeTextSQL)
+	if err != nil {
+		b.Fatalf("Prepare failed: %v", err)
+	}
+	defer stmt.Close()
+
+	benchmarkSelectNoBatch3Query(b, stmt)
+}
+
+func benchmarkSelectNoBatch3Query(b *testing.B, stmt *sql.Stmt) {
+	b.ResetTimer()
+	results := make([]string, 3)
+	for i := 0; i < b.N; i++ {
+		for j := range results {
+			if err := stmt.QueryRow(j).Scan(&results[j]); err != nil {
+				b.Fatal(err)
+			}
 		}
 	}
 }
