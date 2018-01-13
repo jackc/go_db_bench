@@ -45,40 +45,40 @@ func main() {
 
 	pgxPool, err := openPgxNative(connPoolConfig)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "openPgxNative failed: %v", err)
+		fmt.Fprintln(os.Stderr, "openPgxNative failed:", err)
 		os.Exit(1)
 	}
 
 	pgxStdlib, err := openPgxStdlib(connPoolConfig.ConnConfig)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "openPgxNative failed: %v", err)
+		fmt.Fprintln(os.Stderr, "openPgxNative failed:", err)
 		os.Exit(1)
 	}
 	pgxStmt, err := pgxStdlib.Prepare(selectPeopleJSONSQL)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "pgxStdlib.Prepare failed: %v", err)
+		fmt.Fprintln(os.Stderr, "pgxStdlib.Prepare failed:", err)
 		os.Exit(1)
 	}
 
 	pq, err := openPq(connPoolConfig)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "openPq failed: %v", err)
+		fmt.Fprintln(os.Stderr, "openPq failed:", err)
 		os.Exit(1)
 	}
 	pqStmt, err := pq.Prepare(selectPeopleJSONSQL)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "pq.Prepare failed: %v", err)
+		fmt.Fprintln(os.Stderr, "pq.Prepare failed:", err)
 		os.Exit(1)
 	}
 
 	pg, err := openPg(connPoolConfig)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "openPg failed: %v", err)
+		fmt.Fprintln(os.Stderr, "openPg failed:", err)
 		os.Exit(1)
 	}
 	pgStmt, err := pg.Prepare(selectPeopleJSONSQL)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "pg.Prepare failed: %v", err)
+		fmt.Fprintln(os.Stderr, "pg.Prepare failed:", err)
 		os.Exit(1)
 	}
 

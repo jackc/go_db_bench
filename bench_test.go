@@ -97,7 +97,7 @@ func (p *person) LoadColumn(colIdx int, colName string, b []byte) error {
 	case "update_time":
 		return gopg.Decode(&p.UpdateTime, b)
 	default:
-		panic(fmt.Sprintf("unsupported column: %d", colName))
+		panic(fmt.Sprintf("unsupported column: %s", colName))
 	}
 }
 
