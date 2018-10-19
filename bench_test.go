@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/go_db_bench/raw"
 	"github.com/jackc/pgx"
+	"github.com/jackc/pgx/pgtype"
 	gopg "gopkg.in/pg.v3"
 )
 
@@ -517,6 +518,38 @@ func BenchmarkPgxNativeSelectMultipleRows(b *testing.B) {
 				b.Fatalf("rows.Scan failed: %v", err)
 			}
 			checkPersonWasFilled(b, p)
+		}
+		if rows.Err() != nil {
+			b.Fatalf("pgxPool.Query failed: %v", rows.Err())
+		}
+	}
+}
+
+func BenchmarkPgxNativeSelectMultipleRowsIntoGenericBinary(b *testing.B) {
+	setup(b)
+
+	type personRaw struct {
+		Id         pgtype.GenericBinary
+		FirstName  pgtype.GenericBinary
+		LastName   pgtype.GenericBinary
+		Sex        pgtype.GenericBinary
+		BirthDate  pgtype.GenericBinary
+		Weight     pgtype.GenericBinary
+		Height     pgtype.GenericBinary
+		UpdateTime pgtype.GenericBinary
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		id := randPersonIDs[i%len(randPersonIDs)]
+
+		rows, _ := pgxPool.Query("selectMultiplePeople", id)
+		var p personRaw
+		for rows.Next() {
+			err := rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
+			if err != nil {
+				b.Fatalf("rows.Scan failed: %v", err)
+			}
 		}
 		if rows.Err() != nil {
 			b.Fatalf("pgxPool.Query failed: %v", rows.Err())
