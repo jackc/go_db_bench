@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"io"
@@ -9,9 +10,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
-	"github.com/jackc/pgx"
-	"github.com/jackc/pgx/stdlib"
+	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pool"
+	"github.com/jackc/pgx/v4/stdlib"
 	_ "github.com/lib/pq"
 	gopg "gopkg.in/pg.v3"
 )
@@ -23,20 +26,20 @@ where id between $1 and $1 + 25
 `
 
 func main() {
-	connPoolConfig, err := extractConfig()
+	connPoolConfig, err := pool.ParseConfig("")
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "extractConfig failed:", err)
+		fmt.Fprintln(os.Stderr, "pool.ParseConfig failed:", err)
 		os.Exit(1)
 	}
 
-	err = loadTestData(connPoolConfig)
+	err = loadTestData(connPoolConfig.ConnConfig)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "loadTestData failed:", err)
 		os.Exit(1)
 	}
 
-	connPoolConfig.AfterConnect = func(conn *pgx.Conn) error {
-		_, err := conn.Prepare("selectPeopleJSON", selectPeopleJSONSQL)
+	connPoolConfig.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+		_, err := conn.Prepare(ctx, "selectPeopleJSON", selectPeopleJSONSQL)
 		if err != nil {
 			return err
 		}
@@ -49,7 +52,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	pgxStdlib, err := openPgxStdlib(connPoolConfig.ConnConfig)
+	pgxStdlib, err := openPgxStdlib(connPoolConfig)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "openPgxNative failed:", err)
 		os.Exit(1)
@@ -60,7 +63,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	pq, err := openPq(connPoolConfig)
+	pq, err := openPq(connPoolConfig.ConnConfig)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "openPq failed:", err)
 		os.Exit(1)
@@ -71,7 +74,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	pg, err := openPg(connPoolConfig)
+	pg, err := openPg(*connPoolConfig.ConnConfig)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "openPg failed:", err)
 		os.Exit(1)
@@ -87,7 +90,7 @@ func main() {
 
 		var json string
 
-		err := pgxPool.QueryRow("selectPeopleJSON", rand.Int31n(10000)).Scan(&json)
+		err := pgxPool.QueryRow(context.Background(), "selectPeopleJSON", rand.Int31n(10000)).Scan(&json)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -148,50 +151,27 @@ func main() {
 	}
 }
 
-func extractConfig() (config pgx.ConnPoolConfig, err error) {
-	config.ConnConfig, err = pgx.ParseEnvLibpq()
-	if err != nil {
-		return config, err
-	}
+func loadTestData(config *pgx.ConnConfig) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	if config.Host == "" {
-		config.Host = "localhost"
-	}
-
-	if config.User == "" {
-		config.User = os.Getenv("USER")
-	}
-
-	if config.Database == "" {
-		config.Database = "go_db_bench"
-	}
-
-	config.TLSConfig = nil
-	config.UseFallbackTLS = false
-
-	config.MaxConnections = 10
-
-	return config, nil
-}
-
-func loadTestData(config pgx.ConnPoolConfig) error {
-	conn, err := pgx.Connect(config.ConnConfig)
+	conn, err := pgx.ConnectConfig(ctx, config)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer conn.Close(ctx)
 
-	_, err = conn.Exec(personCreateSQL)
+	_, err = conn.Exec(ctx, personCreateSQL)
 	if err != nil {
 		return err
 	}
 
-	_, err = conn.Exec(personInsertSQL)
+	_, err = conn.Exec(ctx, personInsertSQL)
 	if err != nil {
 		return err
 	}
 
-	_, err = conn.Exec("analyze person")
+	_, err = conn.Exec(ctx, "analyze person")
 	if err != nil {
 		return err
 	}
@@ -199,17 +179,16 @@ func loadTestData(config pgx.ConnPoolConfig) error {
 	return nil
 }
 
-func openPgxNative(config pgx.ConnPoolConfig) (*pgx.ConnPool, error) {
-	return pgx.NewConnPool(config)
+func openPgxNative(config *pool.Config) (*pool.Pool, error) {
+	return pool.ConnectConfig(context.Background(), config)
 }
 
-func openPgxStdlib(config pgx.ConnConfig) (*sql.DB, error) {
-	driverConfig := stdlib.DriverConfig{ConnConfig: config}
-	stdlib.RegisterDriverConfig(&driverConfig)
-	return sql.Open("pgx", driverConfig.ConnectionString(""))
+func openPgxStdlib(config *pool.Config) (*sql.DB, error) {
+	db := stdlib.OpenDB(*config.ConnConfig)
+	return db, db.Ping()
 }
 
-func openPq(config pgx.ConnPoolConfig) (*sql.DB, error) {
+func openPq(config *pgx.ConnConfig) (*sql.DB, error) {
 	var options []string
 	options = append(options, fmt.Sprintf("host=%s", config.Host))
 	options = append(options, fmt.Sprintf("user=%s", config.User))
@@ -222,7 +201,7 @@ func openPq(config pgx.ConnPoolConfig) (*sql.DB, error) {
 	return sql.Open("postgres", strings.Join(options, " "))
 }
 
-func openPg(config pgx.ConnPoolConfig) (*gopg.DB, error) {
+func openPg(config pgx.ConnConfig) (*gopg.DB, error) {
 	var options gopg.Options
 
 	options.Host = config.Host

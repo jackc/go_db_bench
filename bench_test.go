@@ -3,23 +3,27 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/binary"
 	"fmt"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/jackc/go_db_bench/raw"
-	"github.com/jackc/pgx"
-	"github.com/jackc/pgx/pgtype"
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgtype"
+	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pool"
 	gopg "gopkg.in/pg.v3"
 )
 
 var (
 	setupOnce     sync.Once
-	pgxPool       *pgx.ConnPool
+	pgxPool       *pool.Pool
 	pgxStdlib     *sql.DB
 	pq            *sql.DB
 	pg            *gopg.DB
+	pgConn        *pgconn.PgConn
 	rawConn       *raw.Conn
 	randPersonIDs []int32
 )
@@ -116,28 +120,28 @@ func (people *People) NewRecord() interface{} {
 
 func setup(b *testing.B) {
 	setupOnce.Do(func() {
-		config, err := extractConfig()
+		config, err := pool.ParseConfig("")
 		if err != nil {
 			b.Fatalf("extractConfig failed: %v", err)
 		}
 
-		config.AfterConnect = func(conn *pgx.Conn) error {
-			_, err := conn.Prepare("selectPersonName", selectPersonNameSQL)
+		config.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+			_, err := conn.Prepare(ctx, "selectPersonName", selectPersonNameSQL)
 			if err != nil {
 				return err
 			}
 
-			_, err = conn.Prepare("selectPerson", selectPersonSQL)
+			_, err = conn.Prepare(ctx, "selectPerson", selectPersonSQL)
 			if err != nil {
 				return err
 			}
 
-			_, err = conn.Prepare("selectMultiplePeople", selectMultiplePeopleSQL)
+			_, err = conn.Prepare(ctx, "selectMultiplePeople", selectMultiplePeopleSQL)
 			if err != nil {
 				return err
 			}
 
-			_, err = conn.Prepare("selectLargeText", selectLargeTextSQL)
+			_, err = conn.Prepare(ctx, "selectLargeText", selectLargeTextSQL)
 			if err != nil {
 				return err
 			}
@@ -145,7 +149,7 @@ func setup(b *testing.B) {
 			return nil
 		}
 
-		err = loadTestData(config)
+		err = loadTestData(config.ConnConfig)
 		if err != nil {
 			b.Fatalf("loadTestData failed: %v", err)
 		}
@@ -155,27 +159,36 @@ func setup(b *testing.B) {
 			b.Fatalf("openPgxNative failed: %v", err)
 		}
 
-		pgxStdlib, err = openPgxStdlib(config.ConnConfig)
+		pgxStdlib, err = openPgxStdlib(config)
 		if err != nil {
 			b.Fatalf("openPgxNative failed: %v", err)
 		}
 
-		pq, err = openPq(config)
+		pq, err = openPq(config.ConnConfig)
 		if err != nil {
 			b.Fatalf("openPq failed: %v", err)
 		}
 
-		pg, err = openPg(config)
+		pg, err = openPg(*config.ConnConfig)
 		if err != nil {
 			b.Fatalf("openPg failed: %v", err)
 		}
 
+		pgConn, err = pgconn.Connect(context.Background(), "")
+		if err != nil {
+			b.Fatalf("pgconn.Connect() failed: %v", err)
+		}
+		_, err = pgConn.Prepare(context.Background(), "selectPerson", selectPersonSQL, nil)
+		if err != nil {
+			b.Fatalf("pgConn.Prepare() failed: %v", err)
+		}
+
 		rawConfig := raw.ConnConfig{
-			Host:     config.Host,
-			Port:     config.Port,
-			User:     config.User,
-			Password: config.Password,
-			Database: config.Database,
+			Host:     config.ConnConfig.Host,
+			Port:     config.ConnConfig.Port,
+			User:     config.ConnConfig.User,
+			Password: config.ConnConfig.Password,
+			Database: config.ConnConfig.Database,
 		}
 		rawConn, err = raw.Connect(rawConfig)
 		if err != nil {
@@ -201,7 +214,7 @@ func setup(b *testing.B) {
 		rxBuf = make([]byte, 16384)
 
 		// Get random person ids in random order outside of timing
-		rows, _ := pgxPool.Query("select id from person order by random()")
+		rows, _ := pgxPool.Query(context.Background(), "select id from person order by random()")
 		for rows.Next() {
 			var id int32
 			rows.Scan(&id)
@@ -221,7 +234,7 @@ func BenchmarkPgxNativeSelectSingleShortString(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		id := randPersonIDs[i%len(randPersonIDs)]
 		var firstName string
-		err := pgxPool.QueryRow("selectPersonName", id).Scan(&firstName)
+		err := pgxPool.QueryRow(context.Background(), "selectPersonName", id).Scan(&firstName)
 		if err != nil {
 			b.Fatalf("pgxPool.QueryRow Scan failed: %v", err)
 		}
@@ -324,7 +337,7 @@ func BenchmarkPgxNativeSelectSingleShortBytes(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		id := randPersonIDs[i%len(randPersonIDs)]
 		var firstName []byte
-		err := pgxPool.QueryRow("selectPersonName", id).Scan(&firstName)
+		err := pgxPool.QueryRow(context.Background(), "selectPersonName", id).Scan(&firstName)
 		if err != nil {
 			b.Fatalf("pgxPool.QueryRow Scan failed: %v", err)
 		}
@@ -408,7 +421,7 @@ func BenchmarkPgxNativeSelectSingleRow(b *testing.B) {
 		var p person
 		id := randPersonIDs[i%len(randPersonIDs)]
 
-		rows, _ := pgxPool.Query("selectPerson", id)
+		rows, _ := pgxPool.Query(context.Background(), "selectPerson", id)
 		for rows.Next() {
 			rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
 		}
@@ -417,6 +430,44 @@ func BenchmarkPgxNativeSelectSingleRow(b *testing.B) {
 		}
 
 		checkPersonWasFilled(b, p)
+	}
+}
+
+func BenchmarkPgconnSelectSingleRowTextProtocolNoParsing(b *testing.B) {
+	setup(b)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		id := randPersonIDs[i%len(randPersonIDs)]
+
+		buf := []byte{0, 0, 0, 0}
+		binary.BigEndian.PutUint32(buf, uint32(id))
+
+		rr := pgConn.ExecPrepared(context.Background(), "selectPerson", [][]byte{buf}, []int16{1}, nil)
+		_, err := rr.Close()
+		if err != nil {
+			b.Fatalf("pgConn.ExecPrepared failed: %v", err)
+		}
+	}
+}
+
+func BenchmarkPgconnSelectSingleRowBinaryProtocolNoParsing(b *testing.B) {
+	setup(b)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		id := randPersonIDs[i%len(randPersonIDs)]
+
+		buf := []byte{0, 0, 0, 0}
+		binary.BigEndian.PutUint32(buf, uint32(id))
+
+		rr := pgConn.ExecPrepared(context.Background(), "selectPerson", [][]byte{buf}, []int16{1}, []int16{1})
+		_, err := rr.Close()
+		if err != nil {
+			b.Fatalf("pgConn.ExecPrepared failed: %v", err)
+		}
 	}
 }
 
@@ -510,7 +561,7 @@ func BenchmarkPgxNativeSelectMultipleRows(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		id := randPersonIDs[i%len(randPersonIDs)]
 
-		rows, _ := pgxPool.Query("selectMultiplePeople", id)
+		rows, _ := pgxPool.Query(context.Background(), "selectMultiplePeople", id)
 		var p person
 		for rows.Next() {
 			err := rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
@@ -543,7 +594,7 @@ func BenchmarkPgxNativeSelectMultipleRowsIntoGenericBinary(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		id := randPersonIDs[i%len(randPersonIDs)]
 
-		rows, _ := pgxPool.Query("selectMultiplePeople", id)
+		rows, _ := pgxPool.Query(context.Background(), "selectMultiplePeople", id)
 		var p personRaw
 		for rows.Next() {
 			err := rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
@@ -723,7 +774,7 @@ func BenchmarkPgxNativeSelectMultipleRowsBytes(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		id := randPersonIDs[i%len(randPersonIDs)]
 
-		rows, _ := pgxPool.Query("selectMultiplePeople", id)
+		rows, _ := pgxPool.Query(context.Background(), "selectMultiplePeople", id)
 		var p personBytes
 		for rows.Next() {
 			err := rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
@@ -790,25 +841,22 @@ func BenchmarkPgxNativeSelectBatch3Query(b *testing.B) {
 	setup(b)
 
 	b.ResetTimer()
+	batch := &pgx.Batch{}
 	results := make([]string, 3)
+	for j := range results {
+		batch.Queue("selectLargeText", []interface{}{j}, nil, []int16{pgx.BinaryFormatCode})
+	}
+
 	for i := 0; i < b.N; i++ {
-
-		batch := pgxPool.BeginBatch()
-		for j := range results {
-			batch.Queue("selectLargeText", []interface{}{j}, nil, []int16{pgx.BinaryFormatCode})
-		}
-
-		if err := batch.Send(context.Background(), nil); err != nil {
-			b.Fatal(err)
-		}
+		br := pgxPool.SendBatch(context.Background(), batch)
 
 		for j := range results {
-			if err := batch.QueryRowResults().Scan(&results[j]); err != nil {
+			if err := br.QueryRowResults().Scan(&results[j]); err != nil {
 				b.Fatal(err)
 			}
 		}
 
-		if err := batch.Close(); err != nil {
+		if err := br.Close(); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -821,7 +869,7 @@ func BenchmarkPgxNativeSelectNoBatch3Query(b *testing.B) {
 	results := make([]string, 3)
 	for i := 0; i < b.N; i++ {
 		for j := range results {
-			if err := pgxPool.QueryRow("selectLargeText", j).Scan(&results[j]); err != nil {
+			if err := pgxPool.QueryRow(context.Background(), "selectLargeText", j).Scan(&results[j]); err != nil {
 				b.Fatal(err)
 			}
 		}
@@ -888,7 +936,7 @@ func benchmarkPgxNativeSelectLargeTextString(b *testing.B, size int) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var s string
-		err := pgxPool.QueryRow("selectLargeText", size).Scan(&s)
+		err := pgxPool.QueryRow(context.Background(), "selectLargeText", size).Scan(&s)
 		if err != nil {
 			b.Fatalf("row.Scan failed: %v", err)
 		}
@@ -1042,7 +1090,7 @@ func benchmarkPgxNativeSelectLargeTextBytes(b *testing.B, size int) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var s []byte
-		err := pgxPool.QueryRow("selectLargeText", size).Scan(&s)
+		err := pgxPool.QueryRow(context.Background(), "selectLargeText", size).Scan(&s)
 		if err != nil {
 			b.Fatalf("row.Scan failed: %v", err)
 		}
