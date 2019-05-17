@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
+	gopg "github.com/go-pg/pg"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pool"
 	"github.com/jackc/pgx/v4/stdlib"
 	_ "github.com/lib/pq"
-	gopg "gopkg.in/pg.v3"
 )
 
 var selectPeopleJSONSQL = `
@@ -204,13 +204,14 @@ func openPq(config *pgx.ConnConfig) (*sql.DB, error) {
 func openPg(config pgx.ConnConfig) (*gopg.DB, error) {
 	var options gopg.Options
 
-	options.Host = config.Host
-	_, err := os.Stat(options.Host)
+	options.Addr = config.Host
+	_, err := os.Stat(options.Addr)
 	if err == nil {
 		options.Network = "unix"
-		if !strings.Contains(options.Host, "/.s.PGSQL.") {
-			options.Host = filepath.Join(options.Host, ".s.PGSQL.5432")
+		if !strings.Contains(options.Addr, "/.s.PGSQL.") {
+			options.Addr = filepath.Join(options.Addr, ".s.PGSQL.5432")
 		}
+
 	}
 
 	options.User = config.User

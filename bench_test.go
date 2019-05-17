@@ -9,12 +9,14 @@ import (
 	"testing"
 	"time"
 
+	gopg "github.com/go-pg/pg"
+	"github.com/go-pg/pg/orm"
+	"github.com/go-pg/pg/types"
 	"github.com/jackc/go_db_bench/raw"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pool"
-	gopg "gopkg.in/pg.v3"
 )
 
 var (
@@ -80,42 +82,38 @@ type personBytes struct {
 	UpdateTime time.Time
 }
 
-// Implements pg.ColumnLoader.
-var _ gopg.ColumnLoader = (*person)(nil)
+// Implements pg.ColumnScanner.
+var _ orm.ColumnScanner = (*person)(nil)
 
-func (p *person) LoadColumn(colIdx int, colName string, b []byte) error {
+func (p *person) ScanColumn(colIdx int, colName string, rd types.Reader, n int) error {
+	var err error
+	var n64 int64
+
 	switch colName {
 	case "id":
-		return gopg.Decode(&p.Id, b)
+		n64, err = types.ScanInt64(rd, n)
+		p.Id = int32(n64)
 	case "first_name":
-		return gopg.Decode(&p.FirstName, b)
+		p.FirstName, err = types.ScanString(rd, n)
 	case "last_name":
-		return gopg.Decode(&p.LastName, b)
+		p.LastName, err = types.ScanString(rd, n)
 	case "sex":
-		return gopg.Decode(&p.Sex, b)
+		p.Sex, err = types.ScanString(rd, n)
 	case "birth_date":
-		return gopg.Decode(&p.BirthDate, b)
+		p.BirthDate, err = types.ScanTime(rd, n)
 	case "weight":
-		return gopg.Decode(&p.Weight, b)
+		n64, err = types.ScanInt64(rd, n)
+		p.Weight = int32(n64)
 	case "height":
-		return gopg.Decode(&p.Height, b)
+		n64, err = types.ScanInt64(rd, n)
+		p.Weight = int32(n64)
 	case "update_time":
-		return gopg.Decode(&p.UpdateTime, b)
+		p.UpdateTime, err = types.ScanTime(rd, n)
 	default:
 		panic(fmt.Sprintf("unsupported column: %s", colName))
 	}
-}
 
-type People struct {
-	C []person
-}
-
-// Implements pg.Collection.
-var _ gopg.Collection = (*People)(nil)
-
-func (people *People) NewRecord() interface{} {
-	people.C = append(people.C, person{})
-	return &people.C[len(people.C)-1]
+	return err
 }
 
 func setup(b *testing.B) {
@@ -268,7 +266,7 @@ func BenchmarkPgSelectSingleShortString(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var firstName string
 		id := randPersonIDs[i%len(randPersonIDs)]
-		_, err := stmt.QueryOne(gopg.LoadInto(&firstName), id)
+		_, err := stmt.QueryOne(gopg.Scan(&firstName), id)
 		if err != nil {
 			b.Fatalf("stmt.QueryOne failed: %v", err)
 		}
@@ -634,15 +632,15 @@ func BenchmarkPgSelectMultipleRowsCollect(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var people People
+		var people []person
 		id := randPersonIDs[i%len(randPersonIDs)]
 		_, err := stmt.Query(&people, id)
 		if err != nil {
 			b.Fatalf("stmt.Query failed: %v", err)
 		}
 
-		for i, _ := range people.C {
-			checkPersonWasFilled(b, people.C[i])
+		for i := range people {
+			checkPersonWasFilled(b, people[i])
 		}
 	}
 }
@@ -1009,7 +1007,7 @@ func benchmarkPgSelectLargeTextString(b *testing.B, size int) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var s string
-		_, err := stmt.QueryOne(gopg.LoadInto(&s), size)
+		_, err := stmt.QueryOne(gopg.Scan(&s), size)
 		if err != nil {
 			b.Fatalf("stmt.QueryOne failed: %v", err)
 		}
