@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	gopg "github.com/go-pg/pg"
+	gopg "github.com/go-pg/pg/v9"
 	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pool"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/jackc/pgx/v4/stdlib"
 	_ "github.com/lib/pq"
 )
@@ -26,7 +26,7 @@ where id between $1 and $1 + 25
 `
 
 func main() {
-	connPoolConfig, err := pool.ParseConfig("")
+	connPoolConfig, err := pgxpool.ParseConfig("")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "pool.ParseConfig failed:", err)
 		os.Exit(1)
@@ -179,11 +179,11 @@ func loadTestData(config *pgx.ConnConfig) error {
 	return nil
 }
 
-func openPgxNative(config *pool.Config) (*pool.Pool, error) {
-	return pool.ConnectConfig(context.Background(), config)
+func openPgxNative(config *pgxpool.Config) (*pgxpool.Pool, error) {
+	return pgxpool.ConnectConfig(context.Background(), config)
 }
 
-func openPgxStdlib(config *pool.Config) (*sql.DB, error) {
+func openPgxStdlib(config *pgxpool.Config) (*sql.DB, error) {
 	db := stdlib.OpenDB(*config.ConnConfig)
 	return db, db.Ping()
 }

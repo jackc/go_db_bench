@@ -9,19 +9,19 @@ import (
 	"testing"
 	"time"
 
-	gopg "github.com/go-pg/pg"
+	gopg "github.com/go-pg/pg/v9"
 	"github.com/go-pg/pg/orm"
 	"github.com/go-pg/pg/types"
 	"github.com/jackc/go_db_bench/raw"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pool"
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 var (
 	setupOnce     sync.Once
-	pgxPool       *pool.Pool
+	pgxPool       *pgxpool.Pool
 	pgxStdlib     *sql.DB
 	pq            *sql.DB
 	pg            *gopg.DB
@@ -118,7 +118,7 @@ func (p *person) ScanColumn(colIdx int, colName string, rd types.Reader, n int) 
 
 func setup(b *testing.B) {
 	setupOnce.Do(func() {
-		config, err := pool.ParseConfig("")
+		config, err := pgxpool.ParseConfig("")
 		if err != nil {
 			b.Fatalf("extractConfig failed: %v", err)
 		}
@@ -842,14 +842,14 @@ func BenchmarkPgxNativeSelectBatch3Query(b *testing.B) {
 	batch := &pgx.Batch{}
 	results := make([]string, 3)
 	for j := range results {
-		batch.Queue("selectLargeText", []interface{}{j}, nil, []int16{pgx.BinaryFormatCode})
+		batch.Queue("selectLargeText", j)
 	}
 
 	for i := 0; i < b.N; i++ {
 		br := pgxPool.SendBatch(context.Background(), batch)
 
 		for j := range results {
-			if err := br.QueryRowResults().Scan(&results[j]); err != nil {
+			if err := br.QueryRow().Scan(&results[j]); err != nil {
 				b.Fatal(err)
 			}
 		}
