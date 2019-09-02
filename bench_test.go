@@ -9,11 +9,12 @@ import (
 	"testing"
 	"time"
 
-	gopg "github.com/go-pg/pg/v9"
 	"github.com/go-pg/pg/orm"
 	"github.com/go-pg/pg/types"
+	gopg "github.com/go-pg/pg/v9"
 	"github.com/jackc/go_db_bench/raw"
 	"github.com/jackc/pgconn"
+	"github.com/jackc/pgconn/stmtcache"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -431,6 +432,103 @@ func BenchmarkPgxNativeSelectSingleRow(b *testing.B) {
 	}
 }
 
+func BenchmarkPgxNativeSelectSingleRowNotPreparedWithStatementCacheModePrepare(b *testing.B) {
+	setup(b)
+
+	config, err := pgxpool.ParseConfig("")
+	if err != nil {
+		b.Fatalf("ParseConfig failed: %v", err)
+	}
+	config.ConnConfig.BuildStatementCache = func(conn *pgconn.PgConn) stmtcache.Cache {
+		return stmtcache.New(conn, stmtcache.ModePrepare, 512)
+	}
+
+	pgxPool, err = openPgxNative(config)
+	if err != nil {
+		b.Fatalf("openPgxNative failed: %v", err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		var p person
+		id := randPersonIDs[i%len(randPersonIDs)]
+
+		rows, _ := pgxPool.Query(context.Background(), selectPersonSQL, id)
+		for rows.Next() {
+			rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
+		}
+		if rows.Err() != nil {
+			b.Fatalf("pgxPool.Query failed: %v", rows.Err())
+		}
+
+		checkPersonWasFilled(b, p)
+	}
+}
+
+func BenchmarkPgxNativeSelectSingleRowNotPreparedWithStatementCacheModeDescribe(b *testing.B) {
+	setup(b)
+
+	config, err := pgxpool.ParseConfig("")
+	if err != nil {
+		b.Fatalf("ParseConfig failed: %v", err)
+	}
+	config.ConnConfig.BuildStatementCache = func(conn *pgconn.PgConn) stmtcache.Cache {
+		return stmtcache.New(conn, stmtcache.ModeDescribe, 512)
+	}
+
+	pgxPool, err = openPgxNative(config)
+	if err != nil {
+		b.Fatalf("openPgxNative failed: %v", err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		var p person
+		id := randPersonIDs[i%len(randPersonIDs)]
+
+		rows, _ := pgxPool.Query(context.Background(), selectPersonSQL, id)
+		for rows.Next() {
+			rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
+		}
+		if rows.Err() != nil {
+			b.Fatalf("pgxPool.Query failed: %v", rows.Err())
+		}
+
+		checkPersonWasFilled(b, p)
+	}
+}
+
+func BenchmarkPgxNativeSelectSingleRowNotPreparedWithStatementCacheDisabled(b *testing.B) {
+	setup(b)
+
+	config, err := pgxpool.ParseConfig("")
+	if err != nil {
+		b.Fatalf("ParseConfig failed: %v", err)
+	}
+	config.ConnConfig.BuildStatementCache = nil
+
+	pgxPool, err = openPgxNative(config)
+	if err != nil {
+		b.Fatalf("openPgxNative failed: %v", err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		var p person
+		id := randPersonIDs[i%len(randPersonIDs)]
+
+		rows, _ := pgxPool.Query(context.Background(), selectPersonSQL, id)
+		for rows.Next() {
+			rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
+		}
+		if rows.Err() != nil {
+			b.Fatalf("pgxPool.Query failed: %v", rows.Err())
+		}
+
+		checkPersonWasFilled(b, p)
+	}
+}
+
 func BenchmarkPgconnSelectSingleRowTextProtocolNoParsing(b *testing.B) {
 	setup(b)
 
@@ -480,6 +578,61 @@ func BenchmarkPgxStdlibSelectSingleRow(b *testing.B) {
 	benchmarkSelectSingleRow(b, stmt)
 }
 
+func BenchmarkPgxStdlibSelectSingleRowNotPreparedStatementCacheModePrepare(b *testing.B) {
+	setup(b)
+
+	config, err := pgxpool.ParseConfig("")
+	if err != nil {
+		b.Fatalf("ParseConfig failed: %v", err)
+	}
+	config.ConnConfig.BuildStatementCache = func(conn *pgconn.PgConn) stmtcache.Cache {
+		return stmtcache.New(conn, stmtcache.ModePrepare, 512)
+	}
+
+	pgxStdlib, err = openPgxStdlib(config)
+	if err != nil {
+		b.Fatalf("openPgxStdlib failed: %v", err)
+	}
+
+	benchmarkSelectSingleRowNotPrepared(b, pgxStdlib, selectPersonSQL)
+}
+
+func BenchmarkPgxStdlibSelectSingleRowNotPreparedStatementCacheModeDescribe(b *testing.B) {
+	setup(b)
+
+	config, err := pgxpool.ParseConfig("")
+	if err != nil {
+		b.Fatalf("ParseConfig failed: %v", err)
+	}
+	config.ConnConfig.BuildStatementCache = func(conn *pgconn.PgConn) stmtcache.Cache {
+		return stmtcache.New(conn, stmtcache.ModeDescribe, 512)
+	}
+
+	pgxStdlib, err = openPgxStdlib(config)
+	if err != nil {
+		b.Fatalf("openPgxStdlib failed: %v", err)
+	}
+
+	benchmarkSelectSingleRowNotPrepared(b, pgxStdlib, selectPersonSQL)
+}
+
+func BenchmarkPgxStdlibSelectSingleRowNotPreparedStatementCacheModeDisabled(b *testing.B) {
+	setup(b)
+
+	config, err := pgxpool.ParseConfig("")
+	if err != nil {
+		b.Fatalf("ParseConfig failed: %v", err)
+	}
+	config.ConnConfig.BuildStatementCache = nil
+
+	pgxStdlib, err = openPgxStdlib(config)
+	if err != nil {
+		b.Fatalf("openPgxStdlib failed: %v", err)
+	}
+
+	benchmarkSelectSingleRowNotPrepared(b, pgxStdlib, selectPersonSQL)
+}
+
 func BenchmarkPgSelectSingleRow(b *testing.B) {
 	setup(b)
 
@@ -502,6 +655,22 @@ func BenchmarkPgSelectSingleRow(b *testing.B) {
 	}
 }
 
+func BenchmarkPgSelectSingleRowNotPrepared(b *testing.B) {
+	setup(b)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		var p person
+		id := randPersonIDs[i%len(randPersonIDs)]
+		_, err := pg.QueryOne(&p, selectPersonSQLQuestionMark, id)
+		if err != nil {
+			b.Fatalf("pg.QueryOne failed: %v", err)
+		}
+
+		checkPersonWasFilled(b, p)
+	}
+}
+
 func BenchmarkPqSelectSingleRow(b *testing.B) {
 	setup(b)
 	stmt, err := pq.Prepare(selectPersonSQL)
@@ -513,11 +682,31 @@ func BenchmarkPqSelectSingleRow(b *testing.B) {
 	benchmarkSelectSingleRow(b, stmt)
 }
 
+func BenchmarkPqSelectSingleRowNotPrepared(b *testing.B) {
+	setup(b)
+	benchmarkSelectSingleRowNotPrepared(b, pq, selectPersonSQL)
+}
+
 func benchmarkSelectSingleRow(b *testing.B, stmt *sql.Stmt) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		id := randPersonIDs[i%len(randPersonIDs)]
 		row := stmt.QueryRow(id)
+		var p person
+		err := row.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
+		if err != nil {
+			b.Fatalf("row.Scan failed: %v", err)
+		}
+
+		checkPersonWasFilled(b, p)
+	}
+}
+
+func benchmarkSelectSingleRowNotPrepared(b *testing.B, db *sql.DB, sql string) {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		id := randPersonIDs[i%len(randPersonIDs)]
+		row := db.QueryRow(sql, id)
 		var p person
 		err := row.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
 		if err != nil {
