@@ -443,7 +443,7 @@ func BenchmarkPgxNativeSelectSingleRowNotPreparedWithStatementCacheModePrepare(b
 		return stmtcache.New(conn, stmtcache.ModePrepare, 512)
 	}
 
-	pgxPool, err = openPgxNative(config)
+	db, err := openPgxNative(config)
 	if err != nil {
 		b.Fatalf("openPgxNative failed: %v", err)
 	}
@@ -453,7 +453,7 @@ func BenchmarkPgxNativeSelectSingleRowNotPreparedWithStatementCacheModePrepare(b
 		var p person
 		id := randPersonIDs[i%len(randPersonIDs)]
 
-		rows, _ := pgxPool.Query(context.Background(), selectPersonSQL, id)
+		rows, _ := db.Query(context.Background(), selectPersonSQL, id)
 		for rows.Next() {
 			rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
 		}
@@ -476,7 +476,7 @@ func BenchmarkPgxNativeSelectSingleRowNotPreparedWithStatementCacheModeDescribe(
 		return stmtcache.New(conn, stmtcache.ModeDescribe, 512)
 	}
 
-	pgxPool, err = openPgxNative(config)
+	db, err := openPgxNative(config)
 	if err != nil {
 		b.Fatalf("openPgxNative failed: %v", err)
 	}
@@ -486,7 +486,7 @@ func BenchmarkPgxNativeSelectSingleRowNotPreparedWithStatementCacheModeDescribe(
 		var p person
 		id := randPersonIDs[i%len(randPersonIDs)]
 
-		rows, _ := pgxPool.Query(context.Background(), selectPersonSQL, id)
+		rows, _ := db.Query(context.Background(), selectPersonSQL, id)
 		for rows.Next() {
 			rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
 		}
@@ -507,7 +507,7 @@ func BenchmarkPgxNativeSelectSingleRowNotPreparedWithStatementCacheDisabled(b *t
 	}
 	config.ConnConfig.BuildStatementCache = nil
 
-	pgxPool, err = openPgxNative(config)
+	db, err := openPgxNative(config)
 	if err != nil {
 		b.Fatalf("openPgxNative failed: %v", err)
 	}
@@ -517,7 +517,7 @@ func BenchmarkPgxNativeSelectSingleRowNotPreparedWithStatementCacheDisabled(b *t
 		var p person
 		id := randPersonIDs[i%len(randPersonIDs)]
 
-		rows, _ := pgxPool.Query(context.Background(), selectPersonSQL, id)
+		rows, _ := db.Query(context.Background(), selectPersonSQL, id)
 		for rows.Next() {
 			rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
 		}
