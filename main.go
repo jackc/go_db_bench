@@ -194,7 +194,11 @@ func openPq(config *pgx.ConnConfig) (*sql.DB, error) {
 	options = append(options, fmt.Sprintf("port=%v", config.Port))
 	options = append(options, fmt.Sprintf("user=%s", config.User))
 	options = append(options, fmt.Sprintf("dbname=%s", config.Database))
-	options = append(options, "sslmode=disable")
+	if config.TLSConfig == nil {
+		options = append(options, "sslmode=disable")
+	} else {
+		options = append(options, "sslmode=require")
+	}
 	if config.Password != "" {
 		options = append(options, fmt.Sprintf("password=%s", config.Password))
 	}
@@ -218,6 +222,7 @@ func openPg(config pgx.ConnConfig) (*gopg.DB, error) {
 	options.User = config.User
 	options.Database = config.Database
 	options.Password = config.Password
+	options.TLSConfig = config.TLSConfig
 
 	return gopg.Connect(&options), nil
 }

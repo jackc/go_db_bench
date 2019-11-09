@@ -14,6 +14,7 @@ go_db_bench reads its configuration from the environment:
     PGUSER - default to OS user
     PGPASSWORD - defaults to empty string
     PGDATABASE - defaults to go_db_bench
+    PGSSLMODE - defaults to disable
 
 ## Core Benchmarks
 
