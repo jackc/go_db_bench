@@ -10,6 +10,7 @@ states otherwise it always uses prepared statements.
 go_db_bench reads its configuration from the environment:
 
     PGHOST - defaults to localhost
+    PGPORT - defaults to 5432
     PGUSER - default to OS user
     PGPASSWORD - defaults to empty string
     PGDATABASE - defaults to go_db_bench

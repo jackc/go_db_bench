@@ -191,6 +191,7 @@ func openPgxStdlib(config *pgxpool.Config) (*sql.DB, error) {
 func openPq(config *pgx.ConnConfig) (*sql.DB, error) {
 	var options []string
 	options = append(options, fmt.Sprintf("host=%s", config.Host))
+	options = append(options, fmt.Sprintf("port=%v", config.Port))
 	options = append(options, fmt.Sprintf("user=%s", config.User))
 	options = append(options, fmt.Sprintf("dbname=%s", config.Database))
 	options = append(options, "sslmode=disable")
@@ -204,7 +205,7 @@ func openPq(config *pgx.ConnConfig) (*sql.DB, error) {
 func openPg(config pgx.ConnConfig) (*gopg.DB, error) {
 	var options gopg.Options
 
-	options.Addr = config.Host
+	options.Addr = fmt.Sprintf("%s:%d", config.Host, config.Port)
 	_, err := os.Stat(options.Addr)
 	if err == nil {
 		options.Network = "unix"
