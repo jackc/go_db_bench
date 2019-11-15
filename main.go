@@ -210,13 +210,12 @@ func openPg(config pgx.ConnConfig) (*gopg.DB, error) {
 	var options gopg.Options
 
 	options.Addr = fmt.Sprintf("%s:%d", config.Host, config.Port)
-	_, err := os.Stat(options.Addr)
+	_, err := os.Stat(config.Host)
 	if err == nil {
 		options.Network = "unix"
-		if !strings.Contains(options.Addr, "/.s.PGSQL.") {
-			options.Addr = filepath.Join(options.Addr, ".s.PGSQL.5432")
+		if !strings.Contains(config.Host, "/.s.PGSQL.") {
+			options.Addr = filepath.Join(config.Host, ".s.PGSQL.5432")
 		}
-
 	}
 
 	options.User = config.User
