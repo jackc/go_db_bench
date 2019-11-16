@@ -57,7 +57,6 @@ var selectLargeTextSQL = `select repeat('*', $1)`
 var rawSelectPersonNameStmt *raw.PreparedStatement
 var rawSelectPersonStmt *raw.PreparedStatement
 var rawSelectMultiplePeopleStmt *raw.PreparedStatement
-var rawSelectLargeTextStmt *raw.PreparedStatement
 
 var rxBuf []byte
 
@@ -202,10 +201,6 @@ func setup(b *testing.B) {
 			b.Fatalf("rawConn.Prepare failed: %v", err)
 		}
 		rawSelectMultiplePeopleStmt, err = rawConn.Prepare("selectMultiplePeople", selectMultiplePeopleSQL)
-		if err != nil {
-			b.Fatalf("rawConn.Prepare failed: %v", err)
-		}
-		rawSelectMultiplePeopleStmt, err = rawConn.Prepare("selectLargeText", selectLargeTextSQL)
 		if err != nil {
 			b.Fatalf("rawConn.Prepare failed: %v", err)
 		}
