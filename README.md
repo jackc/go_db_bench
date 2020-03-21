@@ -15,9 +15,9 @@ All the Go drivers perform similarly when performing queries that return small r
 
 In addition, using driver-specific features can yield significant performance deltas. For example:
 
-* When network latency is the dominant factor using batch operations makes a huge difference ([pgx](https://github.com/jackc/pgx) and [go-pg](https://github.com/go-pg/pg) support in various ways).
+* Batch operations make a huge difference when network latency is a significant factor ([pgx](https://github.com/jackc/pgx) and [go-pg](https://github.com/go-pg/pg) support in various ways).
 * [pgx](https://github.com/jackc/pgx) automatically prepares and caches SQL. This can make a large difference for code that does not explicitly prepare statements, but has no advantage if it does.
-* [go-pg](https://github.com/go-pg/pg) is an ORM as well as a driver. Idiomatic usage does more work than other drivers. This makes direct comparison difficult.
+* [go-pg](https://github.com/go-pg/pg) is an ORM as well as a driver. Idiomatic usage is different and does more work than other drivers. This makes direct comparison difficult.
 
 The raw results analyzed above are in the results directory. You can also run the benchmarks for yourself in your own environment.
 
