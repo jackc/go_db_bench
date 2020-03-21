@@ -1,0 +1,84 @@
+root@ubuntu-c-2-4gib-nyc1-01:~/dev/go_db_bench# go version
+go version go1.14.1 linux/amd64
+root@ubuntu-c-2-4gib-nyc1-01:~/dev/go_db_bench# PGHOST=/var/run/postgresql PGDATABASE=bench PGUSER=bench go test -test.bench=. -test.benchmem
+goos: linux
+goarch: amd64
+pkg: github.com/jackc/go_db_bench
+BenchmarkPgxNativeSelectSingleShortString-2                                    	   20143	     55288 ns/op	     410 B/op	       5 allocs/op
+BenchmarkPgxStdlibSelectSingleShortString-2                                    	   20799	     59287 ns/op	     859 B/op	      22 allocs/op
+BenchmarkPgSelectSingleShortString-2                                           	   27370	     55631 ns/op	     206 B/op	      11 allocs/op
+BenchmarkPqSelectSingleShortString-2                                           	   19606	     53873 ns/op	     576 B/op	      19 allocs/op
+BenchmarkRawSelectSingleShortValue-2                                           	   29330	     49450 ns/op	      20 B/op	       0 allocs/op
+BenchmarkPgxNativeSelectSingleShortBytes-2                                     	   22268	     55194 ns/op	     430 B/op	       6 allocs/op
+BenchmarkPgxStdlibSelectSingleShortBytes-2                                     	   19738	     60892 ns/op	     883 B/op	      23 allocs/op
+BenchmarkPqSelectSingleShortBytes-2                                            	   20754	     56711 ns/op	     600 B/op	      20 allocs/op
+BenchmarkPgxNativeSelectSingleRow-2                                            	   19856	     58308 ns/op	     879 B/op	       7 allocs/op
+BenchmarkPgxNativeSelectSingleRowNotPreparedWithStatementCacheModePrepare-2    	   20964	     62768 ns/op	     880 B/op	       7 allocs/op
+BenchmarkPgxNativeSelectSingleRowNotPreparedWithStatementCacheModeDescribe-2   	    8592	    134098 ns/op	     880 B/op	       7 allocs/op
+BenchmarkPgxNativeSelectSingleRowNotPreparedWithStatementCacheDisabled-2       	    6690	    168094 ns/op	    1589 B/op	      11 allocs/op
+BenchmarkPgconnSelectSingleRowTextProtocolNoParsing-2                          	   23823	     55354 ns/op	     341 B/op	       0 allocs/op
+BenchmarkPgconnSelectSingleRowBinaryProtocolNoParsing-2                        	   21124	     56965 ns/op	     327 B/op	       0 allocs/op
+BenchmarkPgxStdlibSelectSingleRow-2                                            	   18283	     71827 ns/op	    1908 B/op	      46 allocs/op
+BenchmarkPgxStdlibSelectSingleRowNotPreparedStatementCacheModePrepare-2        	   16537	     72749 ns/op	    1876 B/op	      45 allocs/op
+BenchmarkPgxStdlibSelectSingleRowNotPreparedStatementCacheModeDescribe-2       	    8014	    145770 ns/op	    1877 B/op	      45 allocs/op
+BenchmarkPgxStdlibSelectSingleRowNotPreparedStatementCacheModeDisabled-2       	    6040	    203351 ns/op	    2585 B/op	      49 allocs/op
+BenchmarkPgSelectSingleRow-2                                                   	   19494	     64480 ns/op	     378 B/op	      11 allocs/op
+BenchmarkPgSelectSingleRowNotPrepared-2                                        	   10000	    118128 ns/op	     368 B/op	      10 allocs/op
+BenchmarkPqSelectSingleRow-2                                                   	   18320	     66083 ns/op	     975 B/op	      31 allocs/op
+BenchmarkPqSelectSingleRowNotPrepared-2                                        	    6568	    174408 ns/op	    1598 B/op	      44 allocs/op
+BenchmarkRawSelectSingleRow-2                                                  	   25914	     48419 ns/op	      23 B/op	       0 allocs/op
+BenchmarkPgxNativeSelectMultipleRows-2                                         	    8263	    147626 ns/op	    6405 B/op	     103 allocs/op
+BenchmarkPgxNativeSelectMultipleRowsIntoGenericBinary-2                        	   10000	    120834 ns/op	    6007 B/op	      28 allocs/op
+BenchmarkPgConnSelectMultipleRowsWithWithDecodeBinary-2                        	   10000	    106007 ns/op	    2265 B/op	       0 allocs/op
+BenchmarkPgxNativeSelectMultipleRowsWithoutScan-2                              	   10000	    114726 ns/op	    2555 B/op	       2 allocs/op
+BenchmarkPgxNativeSelectMultipleRowsIntoGenericBinaryWithoutScan-2             	   10000	    107487 ns/op	    2555 B/op	       2 allocs/op
+BenchmarkPgxStdlibSelectMultipleRows-2                                         	    6612	    184247 ns/op	    7778 B/op	     350 allocs/op
+BenchmarkPgSelectMultipleRowsCollect-2                                         	   10000	    208531 ns/op	    9397 B/op	     114 allocs/op
+BenchmarkPgSelectMultipleRowsAndDiscard-2                                      	    9640	    106172 ns/op	      84 B/op	       5 allocs/op
+BenchmarkPqSelectMultipleRows-2                                                	   10000	    188643 ns/op	    5932 B/op	     383 allocs/op
+BenchmarkRawSelectMultipleRows-2                                               	   14858	     93228 ns/op	      40 B/op	       1 allocs/op
+BenchmarkPgxNativeSelectMultipleRowsBytes-2                                    	    8376	    153622 ns/op	    6936 B/op	     178 allocs/op
+BenchmarkPgxStdlibSelectMultipleRowsBytes-2                                    	    6481	    193125 ns/op	    8554 B/op	     425 allocs/op
+BenchmarkPqSelectMultipleRowsBytes-2                                           	   10000	    192368 ns/op	    6809 B/op	     458 allocs/op
+BenchmarkPgxNativeSelectBatch3Query-2                                          	   17118	     74701 ns/op	    1518 B/op	      12 allocs/op
+BenchmarkPgxNativeSelectNoBatch3Query-2                                        	   10000	    122265 ns/op	    1137 B/op	       9 allocs/op
+BenchmarkPgxStdlibSelectNoBatch3Query-2                                        	   10000	    133941 ns/op	    2428 B/op	      58 allocs/op
+BenchmarkPqSelectNoBatch3Query-2                                               	   10000	    129271 ns/op	    1632 B/op	      49 allocs/op
+BenchmarkPgxNativeSelectLargeTextString1KB-2                                   	   17418	     69181 ns/op	    2520 B/op	       5 allocs/op
+BenchmarkPgxNativeSelectLargeTextString8KB-2                                   	    7268	    159875 ns/op	   26182 B/op	       7 allocs/op
+BenchmarkPgxNativeSelectLargeTextString64KB-2                                  	    2796	    388372 ns/op	  147779 B/op	       7 allocs/op
+BenchmarkPgxNativeSelectLargeTextString512KB-2                                 	     403	   2965380 ns/op	 1065274 B/op	       7 allocs/op
+BenchmarkPgxNativeSelectLargeTextString4096KB-2                                	      50	  23430036 ns/op	 8405468 B/op	       7 allocs/op
+BenchmarkPgxStdlibSelectLargeTextString1KB-2                                   	   18954	     64485 ns/op	    2957 B/op	      22 allocs/op
+BenchmarkPgxStdlibSelectLargeTextString8KB-2                                   	    7490	    157539 ns/op	   26620 B/op	      24 allocs/op
+BenchmarkPgxStdlibSelectLargeTextString64KB-2                                  	    2509	    460298 ns/op	  148219 B/op	      24 allocs/op
+BenchmarkPgxStdlibSelectLargeTextString512KB-2                                 	     414	   3087248 ns/op	 1065744 B/op	      24 allocs/op
+BenchmarkPgxStdlibSelectLargeTextString4096KB-2                                	      44	  23426734 ns/op	 8405554 B/op	      24 allocs/op
+BenchmarkPgSelectLargeTextString1KB-2                                          	   20878	     56650 ns/op	    1224 B/op	      11 allocs/op
+BenchmarkPgSelectLargeTextString8KB-2                                          	    8616	    136778 ns/op	    8407 B/op	      11 allocs/op
+BenchmarkPgSelectLargeTextString64KB-2                                         	    3237	    370022 ns/op	   65737 B/op	      11 allocs/op
+BenchmarkPgSelectLargeTextString512KB-2                                        	     435	   2684198 ns/op	  524948 B/op	      11 allocs/op
+BenchmarkPgSelectLargeTextString4096KB-2                                       	      52	  22021187 ns/op	 4205907 B/op	      11 allocs/op
+BenchmarkPqSelectLargeTextString1KB-2                                          	   18442	     64944 ns/op	    2744 B/op	      20 allocs/op
+BenchmarkPqSelectLargeTextString8KB-2                                          	    7682	    148381 ns/op	   18232 B/op	      20 allocs/op
+BenchmarkPqSelectLargeTextString64KB-2                                         	    2796	    416081 ns/op	  139832 B/op	      20 allocs/op
+BenchmarkPqSelectLargeTextString512KB-2                                        	     394	   2944675 ns/op	 1057336 B/op	      20 allocs/op
+BenchmarkPqSelectLargeTextString4096KB-2                                       	      49	  23712511 ns/op	 8397371 B/op	      20 allocs/op
+BenchmarkPgxNativeSelectLargeTextBytes1KB-2                                    	   17844	     65003 ns/op	    3560 B/op	       6 allocs/op
+BenchmarkPgxNativeSelectLargeTextBytes8KB-2                                    	    7002	    160503 ns/op	   34389 B/op	       8 allocs/op
+BenchmarkPgxNativeSelectLargeTextBytes64KB-2                                   	    3030	    419322 ns/op	  213333 B/op	       8 allocs/op
+BenchmarkPgxNativeSelectLargeTextBytes512KB-2                                  	     488	   2433634 ns/op	 1589576 B/op	       8 allocs/op
+BenchmarkPgxNativeSelectLargeTextBytes4096KB-2                                 	      38	  27524142 ns/op	12599731 B/op	       8 allocs/op
+BenchmarkPgxStdlibSelectLargeTextBytes1KB-2                                    	   19038	     68114 ns/op	    3998 B/op	      23 allocs/op
+BenchmarkPgxStdlibSelectLargeTextBytes8KB-2                                    	    7308	    184905 ns/op	   34827 B/op	      25 allocs/op
+BenchmarkPgxStdlibSelectLargeTextBytes64KB-2                                   	    3026	    394954 ns/op	  213771 B/op	      25 allocs/op
+BenchmarkPgxStdlibSelectLargeTextBytes512KB-2                                  	     511	   2440017 ns/op	 1590030 B/op	      25 allocs/op
+BenchmarkPgxStdlibSelectLargeTextBytes4096KB-2                                 	      44	  25635376 ns/op	12599875 B/op	      25 allocs/op
+BenchmarkPqSelectLargeTextBytes1KB-2                                           	   19498	     61228 ns/op	    3784 B/op	      21 allocs/op
+BenchmarkPqSelectLargeTextBytes8KB-2                                           	    8101	    153856 ns/op	   26440 B/op	      21 allocs/op
+BenchmarkPqSelectLargeTextBytes64KB-2                                          	    2852	    379920 ns/op	  205384 B/op	      21 allocs/op
+BenchmarkPqSelectLargeTextBytes512KB-2                                         	     487	   2509786 ns/op	 1581640 B/op	      21 allocs/op
+BenchmarkPqSelectLargeTextBytes4096KB-2                                        	      42	  25683541 ns/op	12591691 B/op	      21 allocs/op
+BenchmarkPgConnSelectMultipleRowsWithWithDecodeBinaryZeroAlloc-2               	   10000	    103259 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/jackc/go_db_bench	115.653s

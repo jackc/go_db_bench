@@ -5,16 +5,25 @@ database/sql](https://github.com/jackc/pgx/tree/master/stdlib), [pq](https://git
 [go-pg](https://github.com/go-pg/pg), and theoretical maximum PostgreSQL performance. Unless the test specifically
 states otherwise it always uses prepared statements.
 
+## Interesting Results
+
+* Network latency and PostgreSQL server processing time dominate most real world tests.
+* A simple query executed locally via Unix domain sockets can be several times faster than over the network.
+* TLS is cheap but it is not free (~15% impact).
+
+All the Go drivers perform similarly when performing queries that return small result sets over TCP. Larger differences are apparent with large result sets especially if one driver uses the binary format and another uses the text format for results.
+
+In addition, using driver-specific features can yield significant performance deltas. For example:
+
+* When network latency is the dominant factor using batch operations makes a huge difference ([pgx](https://github.com/jackc/pgx) and [go-pg](https://github.com/go-pg/pg) support in various ways).
+* [pgx](https://github.com/jackc/pgx) automatically prepares and caches SQL. This can make a large difference for code that does not explicitly prepare statements, but has no advantage if it does.
+* [go-pg](https://github.com/go-pg/pg) is an ORM as well as a driver. Idiomatic usage does more work than other drivers. This makes direct comparison difficult.
+
+The raw results analyzed above are in the results directory. You can also run the benchmarks for yourself in your own environment.
+
 ## Configuration
 
-go_db_bench reads its configuration from the environment:
-
-    PGHOST - defaults to localhost
-    PGPORT - defaults to 5432
-    PGUSER - default to OS user
-    PGPASSWORD - defaults to empty string
-    PGDATABASE - defaults to go_db_bench
-    PGSSLMODE - defaults to disable
+go_db_bench reads its configuration from the standard PostgreSQL environment variables such as `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`, and `PGSSLMODE`.
 
 ## Core Benchmarks
 
