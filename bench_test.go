@@ -1314,14 +1314,6 @@ func BenchmarkPgxNativeSelectLargeTextString64KB(b *testing.B) {
 	benchmarkPgxNativeSelectLargeTextString(b, 64*1024)
 }
 
-func BenchmarkPgxNativeSelectLargeTextString512KB(b *testing.B) {
-	benchmarkPgxNativeSelectLargeTextString(b, 512*1024)
-}
-
-func BenchmarkPgxNativeSelectLargeTextString4096KB(b *testing.B) {
-	benchmarkPgxNativeSelectLargeTextString(b, 4096*1024)
-}
-
 func benchmarkPgxNativeSelectLargeTextString(b *testing.B, size int) {
 	setup(b)
 
@@ -1350,14 +1342,6 @@ func BenchmarkPgxStdlibSelectLargeTextString64KB(b *testing.B) {
 	benchmarkPgxStdlibSelectLargeTextString(b, 64*1024)
 }
 
-func BenchmarkPgxStdlibSelectLargeTextString512KB(b *testing.B) {
-	benchmarkPgxStdlibSelectLargeTextString(b, 512*1024)
-}
-
-func BenchmarkPgxStdlibSelectLargeTextString4096KB(b *testing.B) {
-	benchmarkPgxStdlibSelectLargeTextString(b, 4096*1024)
-}
-
 func benchmarkPgxStdlibSelectLargeTextString(b *testing.B, size int) {
 	setup(b)
 	stmt, err := pgxStdlib.Prepare(selectLargeTextSQL)
@@ -1379,14 +1363,6 @@ func BenchmarkPgSelectLargeTextString8KB(b *testing.B) {
 
 func BenchmarkPgSelectLargeTextString64KB(b *testing.B) {
 	benchmarkPgSelectLargeTextString(b, 64*1024)
-}
-
-func BenchmarkPgSelectLargeTextString512KB(b *testing.B) {
-	benchmarkPgSelectLargeTextString(b, 512*1024)
-}
-
-func BenchmarkPgSelectLargeTextString4096KB(b *testing.B) {
-	benchmarkPgSelectLargeTextString(b, 4096*1024)
 }
 
 func benchmarkPgSelectLargeTextString(b *testing.B, size int) {
@@ -1421,14 +1397,6 @@ func BenchmarkPqSelectLargeTextString8KB(b *testing.B) {
 
 func BenchmarkPqSelectLargeTextString64KB(b *testing.B) {
 	benchmarkPqSelectLargeTextString(b, 64*1024)
-}
-
-func BenchmarkPqSelectLargeTextString512KB(b *testing.B) {
-	benchmarkPqSelectLargeTextString(b, 512*1024)
-}
-
-func BenchmarkPqSelectLargeTextString4096KB(b *testing.B) {
-	benchmarkPqSelectLargeTextString(b, 4096*1024)
 }
 
 func benchmarkPqSelectLargeTextString(b *testing.B, size int) {
@@ -1468,14 +1436,6 @@ func BenchmarkPgxNativeSelectLargeTextBytes64KB(b *testing.B) {
 	benchmarkPgxNativeSelectLargeTextBytes(b, 64*1024)
 }
 
-func BenchmarkPgxNativeSelectLargeTextBytes512KB(b *testing.B) {
-	benchmarkPgxNativeSelectLargeTextBytes(b, 512*1024)
-}
-
-func BenchmarkPgxNativeSelectLargeTextBytes4096KB(b *testing.B) {
-	benchmarkPgxNativeSelectLargeTextBytes(b, 4096*1024)
-}
-
 func benchmarkPgxNativeSelectLargeTextBytes(b *testing.B, size int) {
 	setup(b)
 
@@ -1504,14 +1464,6 @@ func BenchmarkPgxStdlibSelectLargeTextBytes64KB(b *testing.B) {
 	benchmarkPgxStdlibSelectLargeTextBytes(b, 64*1024)
 }
 
-func BenchmarkPgxStdlibSelectLargeTextBytes512KB(b *testing.B) {
-	benchmarkPgxStdlibSelectLargeTextBytes(b, 512*1024)
-}
-
-func BenchmarkPgxStdlibSelectLargeTextBytes4096KB(b *testing.B) {
-	benchmarkPgxStdlibSelectLargeTextBytes(b, 4096*1024)
-}
-
 func benchmarkPgxStdlibSelectLargeTextBytes(b *testing.B, size int) {
 	setup(b)
 	stmt, err := pgxStdlib.Prepare(selectLargeTextSQL)
@@ -1533,14 +1485,6 @@ func BenchmarkPqSelectLargeTextBytes8KB(b *testing.B) {
 
 func BenchmarkPqSelectLargeTextBytes64KB(b *testing.B) {
 	benchmarkPqSelectLargeTextBytes(b, 64*1024)
-}
-
-func BenchmarkPqSelectLargeTextBytes512KB(b *testing.B) {
-	benchmarkPqSelectLargeTextBytes(b, 512*1024)
-}
-
-func BenchmarkPqSelectLargeTextBytes4096KB(b *testing.B) {
-	benchmarkPqSelectLargeTextBytes(b, 4096*1024)
 }
 
 func benchmarkPqSelectLargeTextBytes(b *testing.B, size int) {
