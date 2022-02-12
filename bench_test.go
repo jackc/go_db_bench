@@ -13,20 +13,20 @@ import (
 	"github.com/go-pg/pg/v10/orm"
 	"github.com/go-pg/pg/v10/types"
 	"github.com/jackc/go_db_bench/raw"
-	"github.com/jackc/pgconn"
-	"github.com/jackc/pgconn/stmtcache"
-	"github.com/jackc/pgtype"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	pgconnv4 "github.com/jackc/pgconn"
+	stmtcachev4 "github.com/jackc/pgconn/stmtcache"
+	pgtypev4 "github.com/jackc/pgtype"
+	pgxv4 "github.com/jackc/pgx/v4"
+	pgxpoolv4 "github.com/jackc/pgx/v4/pgxpool"
 )
 
 var (
 	setupOnce     sync.Once
-	pgxPool       *pgxpool.Pool
-	pgxStdlib     *sql.DB
+	pgxPoolV4     *pgxpoolv4.Pool
+	pgxStdlibV4   *sql.DB
 	pq            *sql.DB
 	pg            *gopg.DB
-	pgConn        *pgconn.PgConn
+	pgConnV4      *pgconnv4.PgConn
 	rawConn       *raw.Conn
 	randPersonIDs []int32
 )
@@ -118,12 +118,12 @@ func (p *person) ScanColumn(colInfo types.ColumnInfo, rd types.Reader, n int) er
 
 func setup(b *testing.B) {
 	setupOnce.Do(func() {
-		config, err := pgxpool.ParseConfig("")
+		config, err := pgxpoolv4.ParseConfig("")
 		if err != nil {
 			b.Fatalf("extractConfig failed: %v", err)
 		}
 
-		config.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+		config.AfterConnect = func(ctx context.Context, conn *pgxv4.Conn) error {
 			_, err := conn.Prepare(ctx, "selectPersonName", selectPersonNameSQL)
 			if err != nil {
 				return err
@@ -152,12 +152,12 @@ func setup(b *testing.B) {
 			b.Fatalf("loadTestData failed: %v", err)
 		}
 
-		pgxPool, err = openPgxNative(config)
+		pgxPoolV4, err = openPgxNative(config)
 		if err != nil {
 			b.Fatalf("openPgxNative failed: %v", err)
 		}
 
-		pgxStdlib, err = openPgxStdlib(config)
+		pgxStdlibV4, err = openPgxStdlib(config)
 		if err != nil {
 			b.Fatalf("openPgxNative failed: %v", err)
 		}
@@ -172,15 +172,15 @@ func setup(b *testing.B) {
 			b.Fatalf("openPg failed: %v", err)
 		}
 
-		pgConn, err = pgconn.Connect(context.Background(), "")
+		pgConnV4, err = pgconnv4.Connect(context.Background(), "")
 		if err != nil {
 			b.Fatalf("pgconn.Connect() failed: %v", err)
 		}
-		_, err = pgConn.Prepare(context.Background(), "selectPerson", selectPersonSQL, nil)
+		_, err = pgConnV4.Prepare(context.Background(), "selectPerson", selectPersonSQL, nil)
 		if err != nil {
 			b.Fatalf("pgConn.Prepare() failed: %v", err)
 		}
-		_, err = pgConn.Prepare(context.Background(), "selectMultiplePeople", selectMultiplePeopleSQL, nil)
+		_, err = pgConnV4.Prepare(context.Background(), "selectMultiplePeople", selectMultiplePeopleSQL, nil)
 		if err != nil {
 			b.Fatalf("pgConn.Prepare() failed: %v", err)
 		}
@@ -212,7 +212,7 @@ func setup(b *testing.B) {
 		rxBuf = make([]byte, 16384)
 
 		// Get random person ids in random order outside of timing
-		rows, _ := pgxPool.Query(context.Background(), "select id from person order by random()")
+		rows, _ := pgxPoolV4.Query(context.Background(), "select id from person order by random()")
 		for rows.Next() {
 			var id int32
 			rows.Scan(&id)
@@ -225,14 +225,14 @@ func setup(b *testing.B) {
 	})
 }
 
-func BenchmarkPgxNativeSelectSingleShortString(b *testing.B) {
+func BenchmarkPgxV4NativeSelectSingleShortString(b *testing.B) {
 	setup(b)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		id := randPersonIDs[i%len(randPersonIDs)]
 		var firstName string
-		err := pgxPool.QueryRow(context.Background(), "selectPersonName", id).Scan(&firstName)
+		err := pgxPoolV4.QueryRow(context.Background(), "selectPersonName", id).Scan(&firstName)
 		if err != nil {
 			b.Fatalf("pgxPool.QueryRow Scan failed: %v", err)
 		}
@@ -242,9 +242,9 @@ func BenchmarkPgxNativeSelectSingleShortString(b *testing.B) {
 	}
 }
 
-func BenchmarkPgxStdlibSelectSingleShortString(b *testing.B) {
+func BenchmarkPgxV4StdlibSelectSingleShortString(b *testing.B) {
 	setup(b)
-	stmt, err := pgxStdlib.Prepare(selectPersonNameSQL)
+	stmt, err := pgxStdlibV4.Prepare(selectPersonNameSQL)
 	if err != nil {
 		b.Fatalf("Prepare failed: %v", err)
 	}
@@ -328,14 +328,14 @@ func BenchmarkRawSelectSingleShortValue(b *testing.B) {
 	}
 }
 
-func BenchmarkPgxNativeSelectSingleShortBytes(b *testing.B) {
+func BenchmarkPgxV4NativeSelectSingleShortBytes(b *testing.B) {
 	setup(b)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		id := randPersonIDs[i%len(randPersonIDs)]
 		var firstName []byte
-		err := pgxPool.QueryRow(context.Background(), "selectPersonName", id).Scan(&firstName)
+		err := pgxPoolV4.QueryRow(context.Background(), "selectPersonName", id).Scan(&firstName)
 		if err != nil {
 			b.Fatalf("pgxPool.QueryRow Scan failed: %v", err)
 		}
@@ -345,9 +345,9 @@ func BenchmarkPgxNativeSelectSingleShortBytes(b *testing.B) {
 	}
 }
 
-func BenchmarkPgxStdlibSelectSingleShortBytes(b *testing.B) {
+func BenchmarkPgxV4StdlibSelectSingleShortBytes(b *testing.B) {
 	setup(b)
-	stmt, err := pgxStdlib.Prepare(selectPersonNameSQL)
+	stmt, err := pgxStdlibV4.Prepare(selectPersonNameSQL)
 	if err != nil {
 		b.Fatalf("Prepare failed: %v", err)
 	}
@@ -411,7 +411,7 @@ func checkPersonWasFilled(b *testing.B, p person) {
 	}
 }
 
-func BenchmarkPgxNativeSelectSingleRow(b *testing.B) {
+func BenchmarkPgxV4NativeSelectSingleRow(b *testing.B) {
 	setup(b)
 
 	b.ResetTimer()
@@ -419,7 +419,7 @@ func BenchmarkPgxNativeSelectSingleRow(b *testing.B) {
 		var p person
 		id := randPersonIDs[i%len(randPersonIDs)]
 
-		rows, _ := pgxPool.Query(context.Background(), "selectPerson", id)
+		rows, _ := pgxPoolV4.Query(context.Background(), "selectPerson", id)
 		for rows.Next() {
 			rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
 		}
@@ -431,15 +431,15 @@ func BenchmarkPgxNativeSelectSingleRow(b *testing.B) {
 	}
 }
 
-func BenchmarkPgxNativeSelectSingleRowNotPreparedWithStatementCacheModePrepare(b *testing.B) {
+func BenchmarkPgxV4NativeSelectSingleRowNotPreparedWithStatementCacheModePrepare(b *testing.B) {
 	setup(b)
 
-	config, err := pgxpool.ParseConfig("")
+	config, err := pgxpoolv4.ParseConfig("")
 	if err != nil {
 		b.Fatalf("ParseConfig failed: %v", err)
 	}
-	config.ConnConfig.BuildStatementCache = func(conn *pgconn.PgConn) stmtcache.Cache {
-		return stmtcache.New(conn, stmtcache.ModePrepare, 512)
+	config.ConnConfig.BuildStatementCache = func(conn *pgconnv4.PgConn) stmtcachev4.Cache {
+		return stmtcachev4.New(conn, stmtcachev4.ModePrepare, 512)
 	}
 
 	db, err := openPgxNative(config)
@@ -464,15 +464,15 @@ func BenchmarkPgxNativeSelectSingleRowNotPreparedWithStatementCacheModePrepare(b
 	}
 }
 
-func BenchmarkPgxNativeSelectSingleRowNotPreparedWithStatementCacheModeDescribe(b *testing.B) {
+func BenchmarkPgxV4NativeSelectSingleRowNotPreparedWithStatementCacheModeDescribe(b *testing.B) {
 	setup(b)
 
-	config, err := pgxpool.ParseConfig("")
+	config, err := pgxpoolv4.ParseConfig("")
 	if err != nil {
 		b.Fatalf("ParseConfig failed: %v", err)
 	}
-	config.ConnConfig.BuildStatementCache = func(conn *pgconn.PgConn) stmtcache.Cache {
-		return stmtcache.New(conn, stmtcache.ModeDescribe, 512)
+	config.ConnConfig.BuildStatementCache = func(conn *pgconnv4.PgConn) stmtcachev4.Cache {
+		return stmtcachev4.New(conn, stmtcachev4.ModeDescribe, 512)
 	}
 
 	db, err := openPgxNative(config)
@@ -497,10 +497,10 @@ func BenchmarkPgxNativeSelectSingleRowNotPreparedWithStatementCacheModeDescribe(
 	}
 }
 
-func BenchmarkPgxNativeSelectSingleRowNotPreparedWithStatementCacheDisabled(b *testing.B) {
+func BenchmarkPgxV4NativeSelectSingleRowNotPreparedWithStatementCacheDisabled(b *testing.B) {
 	setup(b)
 
-	config, err := pgxpool.ParseConfig("")
+	config, err := pgxpoolv4.ParseConfig("")
 	if err != nil {
 		b.Fatalf("ParseConfig failed: %v", err)
 	}
@@ -528,7 +528,7 @@ func BenchmarkPgxNativeSelectSingleRowNotPreparedWithStatementCacheDisabled(b *t
 	}
 }
 
-func BenchmarkPgconnSelectSingleRowTextProtocolNoParsing(b *testing.B) {
+func BenchmarkPgConnV4SelectSingleRowTextProtocolNoParsing(b *testing.B) {
 	setup(b)
 
 	b.ResetTimer()
@@ -539,7 +539,7 @@ func BenchmarkPgconnSelectSingleRowTextProtocolNoParsing(b *testing.B) {
 		buf := []byte{0, 0, 0, 0}
 		binary.BigEndian.PutUint32(buf, uint32(id))
 
-		rr := pgConn.ExecPrepared(context.Background(), "selectPerson", [][]byte{buf}, []int16{1}, nil)
+		rr := pgConnV4.ExecPrepared(context.Background(), "selectPerson", [][]byte{buf}, []int16{1}, nil)
 		_, err := rr.Close()
 		if err != nil {
 			b.Fatalf("pgConn.ExecPrepared failed: %v", err)
@@ -547,7 +547,7 @@ func BenchmarkPgconnSelectSingleRowTextProtocolNoParsing(b *testing.B) {
 	}
 }
 
-func BenchmarkPgconnSelectSingleRowBinaryProtocolNoParsing(b *testing.B) {
+func BenchmarkPgConnV4SelectSingleRowBinaryProtocolNoParsing(b *testing.B) {
 	setup(b)
 
 	b.ResetTimer()
@@ -558,7 +558,7 @@ func BenchmarkPgconnSelectSingleRowBinaryProtocolNoParsing(b *testing.B) {
 		buf := []byte{0, 0, 0, 0}
 		binary.BigEndian.PutUint32(buf, uint32(id))
 
-		rr := pgConn.ExecPrepared(context.Background(), "selectPerson", [][]byte{buf}, []int16{1}, []int16{1})
+		rr := pgConnV4.ExecPrepared(context.Background(), "selectPerson", [][]byte{buf}, []int16{1}, []int16{1})
 		_, err := rr.Close()
 		if err != nil {
 			b.Fatalf("pgConn.ExecPrepared failed: %v", err)
@@ -566,9 +566,9 @@ func BenchmarkPgconnSelectSingleRowBinaryProtocolNoParsing(b *testing.B) {
 	}
 }
 
-func BenchmarkPgxStdlibSelectSingleRow(b *testing.B) {
+func BenchmarkPgxV4StdlibSelectSingleRow(b *testing.B) {
 	setup(b)
-	stmt, err := pgxStdlib.Prepare(selectPersonSQL)
+	stmt, err := pgxStdlibV4.Prepare(selectPersonSQL)
 	if err != nil {
 		b.Fatalf("Prepare failed: %v", err)
 	}
@@ -577,59 +577,59 @@ func BenchmarkPgxStdlibSelectSingleRow(b *testing.B) {
 	benchmarkSelectSingleRow(b, stmt)
 }
 
-func BenchmarkPgxStdlibSelectSingleRowNotPreparedStatementCacheModePrepare(b *testing.B) {
+func BenchmarkPgxV4StdlibSelectSingleRowNotPreparedStatementCacheModePrepare(b *testing.B) {
 	setup(b)
 
-	config, err := pgxpool.ParseConfig("")
+	config, err := pgxpoolv4.ParseConfig("")
 	if err != nil {
 		b.Fatalf("ParseConfig failed: %v", err)
 	}
-	config.ConnConfig.BuildStatementCache = func(conn *pgconn.PgConn) stmtcache.Cache {
-		return stmtcache.New(conn, stmtcache.ModePrepare, 512)
+	config.ConnConfig.BuildStatementCache = func(conn *pgconnv4.PgConn) stmtcachev4.Cache {
+		return stmtcachev4.New(conn, stmtcachev4.ModePrepare, 512)
 	}
 
-	pgxStdlib, err = openPgxStdlib(config)
+	pgxStdlibV4, err = openPgxStdlib(config)
 	if err != nil {
 		b.Fatalf("openPgxStdlib failed: %v", err)
 	}
 
-	benchmarkSelectSingleRowNotPrepared(b, pgxStdlib, selectPersonSQL)
+	benchmarkSelectSingleRowNotPrepared(b, pgxStdlibV4, selectPersonSQL)
 }
 
-func BenchmarkPgxStdlibSelectSingleRowNotPreparedStatementCacheModeDescribe(b *testing.B) {
+func BenchmarkPgxV4StdlibSelectSingleRowNotPreparedStatementCacheModeDescribe(b *testing.B) {
 	setup(b)
 
-	config, err := pgxpool.ParseConfig("")
+	config, err := pgxpoolv4.ParseConfig("")
 	if err != nil {
 		b.Fatalf("ParseConfig failed: %v", err)
 	}
-	config.ConnConfig.BuildStatementCache = func(conn *pgconn.PgConn) stmtcache.Cache {
-		return stmtcache.New(conn, stmtcache.ModeDescribe, 512)
+	config.ConnConfig.BuildStatementCache = func(conn *pgconnv4.PgConn) stmtcachev4.Cache {
+		return stmtcachev4.New(conn, stmtcachev4.ModeDescribe, 512)
 	}
 
-	pgxStdlib, err = openPgxStdlib(config)
+	pgxStdlibV4, err = openPgxStdlib(config)
 	if err != nil {
 		b.Fatalf("openPgxStdlib failed: %v", err)
 	}
 
-	benchmarkSelectSingleRowNotPrepared(b, pgxStdlib, selectPersonSQL)
+	benchmarkSelectSingleRowNotPrepared(b, pgxStdlibV4, selectPersonSQL)
 }
 
-func BenchmarkPgxStdlibSelectSingleRowNotPreparedStatementCacheModeDisabled(b *testing.B) {
+func BenchmarkPgxV4StdlibSelectSingleRowNotPreparedStatementCacheModeDisabled(b *testing.B) {
 	setup(b)
 
-	config, err := pgxpool.ParseConfig("")
+	config, err := pgxpoolv4.ParseConfig("")
 	if err != nil {
 		b.Fatalf("ParseConfig failed: %v", err)
 	}
 	config.ConnConfig.BuildStatementCache = nil
 
-	pgxStdlib, err = openPgxStdlib(config)
+	pgxStdlibV4, err = openPgxStdlib(config)
 	if err != nil {
 		b.Fatalf("openPgxStdlib failed: %v", err)
 	}
 
-	benchmarkSelectSingleRowNotPrepared(b, pgxStdlib, selectPersonSQL)
+	benchmarkSelectSingleRowNotPrepared(b, pgxStdlibV4, selectPersonSQL)
 }
 
 func BenchmarkPgSelectSingleRow(b *testing.B) {
@@ -740,14 +740,14 @@ func BenchmarkRawSelectSingleRow(b *testing.B) {
 	}
 }
 
-func BenchmarkPgxNativeSelectMultipleRows(b *testing.B) {
+func BenchmarkPgxV4NativeSelectMultipleRows(b *testing.B) {
 	setup(b)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		id := randPersonIDs[i%len(randPersonIDs)]
 
-		rows, _ := pgxPool.Query(context.Background(), "selectMultiplePeople", id)
+		rows, _ := pgxPoolV4.Query(context.Background(), "selectMultiplePeople", id)
 		var p person
 		for rows.Next() {
 			err := rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
@@ -762,18 +762,18 @@ func BenchmarkPgxNativeSelectMultipleRows(b *testing.B) {
 	}
 }
 
-func BenchmarkPgConnSelectMultipleRowsWithWithDecodeBinary(b *testing.B) {
+func BenchmarkPgConnV4SelectMultipleRowsWithWithDecodeBinary(b *testing.B) {
 	setup(b)
 
 	type personRaw struct {
-		Id         pgtype.Int4
-		FirstName  pgtype.GenericBinary
-		LastName   pgtype.GenericBinary
-		Sex        pgtype.GenericBinary
-		BirthDate  pgtype.Date
-		Weight     pgtype.Int4
-		Height     pgtype.Int4
-		UpdateTime pgtype.Timestamptz
+		Id         pgtypev4.Int4
+		FirstName  pgtypev4.GenericBinary
+		LastName   pgtypev4.GenericBinary
+		Sex        pgtypev4.GenericBinary
+		BirthDate  pgtypev4.Date
+		Weight     pgtypev4.Int4
+		Height     pgtypev4.Int4
+		UpdateTime pgtypev4.Timestamptz
 	}
 
 	b.ResetTimer()
@@ -783,7 +783,7 @@ func BenchmarkPgConnSelectMultipleRowsWithWithDecodeBinary(b *testing.B) {
 		buf := []byte{0, 0, 0, 0}
 		binary.BigEndian.PutUint32(buf, uint32(id))
 
-		rr := pgConn.ExecPrepared(context.Background(), "selectMultiplePeople", [][]byte{buf}, []int16{1}, []int16{1})
+		rr := pgConnV4.ExecPrepared(context.Background(), "selectMultiplePeople", [][]byte{buf}, []int16{1}, []int16{1})
 
 		var p personRaw
 		for rr.NextRow() {
@@ -846,25 +846,25 @@ func BenchmarkPgConnSelectMultipleRowsWithWithDecodeBinary(b *testing.B) {
 	}
 }
 
-func BenchmarkPgxNativeSelectMultipleRowsWithoutScan(b *testing.B) {
+func BenchmarkPgxV4NativeSelectMultipleRowsWithoutScan(b *testing.B) {
 	setup(b)
 
 	type personRaw struct {
-		Id         pgtype.Int4
-		FirstName  pgtype.GenericBinary
-		LastName   pgtype.GenericBinary
-		Sex        pgtype.GenericBinary
-		BirthDate  pgtype.Date
-		Weight     pgtype.Int4
-		Height     pgtype.Int4
-		UpdateTime pgtype.Timestamptz
+		Id         pgtypev4.Int4
+		FirstName  pgtypev4.GenericBinary
+		LastName   pgtypev4.GenericBinary
+		Sex        pgtypev4.GenericBinary
+		BirthDate  pgtypev4.Date
+		Weight     pgtypev4.Int4
+		Height     pgtypev4.Int4
+		UpdateTime pgtypev4.Timestamptz
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		id := randPersonIDs[i%len(randPersonIDs)]
 
-		rows, _ := pgxPool.Query(context.Background(), "selectMultiplePeople", id)
+		rows, _ := pgxPoolV4.Query(context.Background(), "selectMultiplePeople", id)
 		var p personRaw
 		for rows.Next() {
 			var err error
@@ -923,25 +923,25 @@ func BenchmarkPgxNativeSelectMultipleRowsWithoutScan(b *testing.B) {
 	}
 }
 
-func BenchmarkPgxNativeSelectMultipleRowsIntoGenericBinaryWithoutScan(b *testing.B) {
+func BenchmarkPgxV4NativeSelectMultipleRowsIntoGenericBinaryWithoutScan(b *testing.B) {
 	setup(b)
 
 	type personRaw struct {
-		Id         pgtype.GenericBinary
-		FirstName  pgtype.GenericBinary
-		LastName   pgtype.GenericBinary
-		Sex        pgtype.GenericBinary
-		BirthDate  pgtype.GenericBinary
-		Weight     pgtype.GenericBinary
-		Height     pgtype.GenericBinary
-		UpdateTime pgtype.GenericBinary
+		Id         pgtypev4.GenericBinary
+		FirstName  pgtypev4.GenericBinary
+		LastName   pgtypev4.GenericBinary
+		Sex        pgtypev4.GenericBinary
+		BirthDate  pgtypev4.GenericBinary
+		Weight     pgtypev4.GenericBinary
+		Height     pgtypev4.GenericBinary
+		UpdateTime pgtypev4.GenericBinary
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		id := randPersonIDs[i%len(randPersonIDs)]
 
-		rows, _ := pgxPool.Query(context.Background(), "selectMultiplePeople", id)
+		rows, _ := pgxPoolV4.Query(context.Background(), "selectMultiplePeople", id)
 		var p personRaw
 		for rows.Next() {
 			var err error
@@ -1000,10 +1000,10 @@ func BenchmarkPgxNativeSelectMultipleRowsIntoGenericBinaryWithoutScan(b *testing
 	}
 }
 
-func BenchmarkPgxStdlibSelectMultipleRows(b *testing.B) {
+func BenchmarkPgxV4StdlibSelectMultipleRows(b *testing.B) {
 	setup(b)
 
-	stmt, err := pgxStdlib.Prepare(selectMultiplePeopleSQL)
+	stmt, err := pgxStdlibV4.Prepare(selectMultiplePeopleSQL)
 	if err != nil {
 		b.Fatalf("Prepare failed: %v", err)
 	}
@@ -1159,14 +1159,14 @@ func checkPersonBytesWasFilled(b *testing.B, p personBytes) {
 	}
 }
 
-func BenchmarkPgxNativeSelectMultipleRowsBytes(b *testing.B) {
+func BenchmarkPgxV4NativeSelectMultipleRowsBytes(b *testing.B) {
 	setup(b)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		id := randPersonIDs[i%len(randPersonIDs)]
 
-		rows, _ := pgxPool.Query(context.Background(), "selectMultiplePeople", id)
+		rows, _ := pgxPoolV4.Query(context.Background(), "selectMultiplePeople", id)
 		var p personBytes
 		for rows.Next() {
 			err := rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
@@ -1181,10 +1181,10 @@ func BenchmarkPgxNativeSelectMultipleRowsBytes(b *testing.B) {
 	}
 }
 
-func BenchmarkPgxStdlibSelectMultipleRowsBytes(b *testing.B) {
+func BenchmarkPgxV4StdlibSelectMultipleRowsBytes(b *testing.B) {
 	setup(b)
 
-	stmt, err := pgxStdlib.Prepare(selectMultiplePeopleSQL)
+	stmt, err := pgxStdlibV4.Prepare(selectMultiplePeopleSQL)
 	if err != nil {
 		b.Fatalf("Prepare failed: %v", err)
 	}
@@ -1229,18 +1229,18 @@ func benchmarkSelectMultipleRowsBytes(b *testing.B, stmt *sql.Stmt) {
 	}
 }
 
-func BenchmarkPgxNativeSelectBatch3Query(b *testing.B) {
+func BenchmarkPgxV4NativeSelectBatch3Query(b *testing.B) {
 	setup(b)
 
 	b.ResetTimer()
-	batch := &pgx.Batch{}
+	batch := &pgxv4.Batch{}
 	results := make([]string, 3)
 	for j := range results {
 		batch.Queue("selectLargeText", j)
 	}
 
 	for i := 0; i < b.N; i++ {
-		br := pgxPool.SendBatch(context.Background(), batch)
+		br := pgxPoolV4.SendBatch(context.Background(), batch)
 
 		for j := range results {
 			if err := br.QueryRow().Scan(&results[j]); err != nil {
@@ -1254,23 +1254,23 @@ func BenchmarkPgxNativeSelectBatch3Query(b *testing.B) {
 	}
 }
 
-func BenchmarkPgxNativeSelectNoBatch3Query(b *testing.B) {
+func BenchmarkPgxV4NativeSelectNoBatch3Query(b *testing.B) {
 	setup(b)
 
 	b.ResetTimer()
 	results := make([]string, 3)
 	for i := 0; i < b.N; i++ {
 		for j := range results {
-			if err := pgxPool.QueryRow(context.Background(), "selectLargeText", j).Scan(&results[j]); err != nil {
+			if err := pgxPoolV4.QueryRow(context.Background(), "selectLargeText", j).Scan(&results[j]); err != nil {
 				b.Fatal(err)
 			}
 		}
 	}
 }
 
-func BenchmarkPgxStdlibSelectNoBatch3Query(b *testing.B) {
+func BenchmarkPgxV4StdlibSelectNoBatch3Query(b *testing.B) {
 	setup(b)
-	stmt, err := pgxStdlib.Prepare(selectLargeTextSQL)
+	stmt, err := pgxStdlibV4.Prepare(selectLargeTextSQL)
 	if err != nil {
 		b.Fatalf("Prepare failed: %v", err)
 	}
@@ -1302,25 +1302,25 @@ func benchmarkSelectNoBatch3Query(b *testing.B, stmt *sql.Stmt) {
 	}
 }
 
-func BenchmarkPgxNativeSelectLargeTextString1KB(b *testing.B) {
-	benchmarkPgxNativeSelectLargeTextString(b, 1024)
+func BenchmarkPgxV4NativeSelectLargeTextString1KB(b *testing.B) {
+	benchmarkPgxV4NativeSelectLargeTextString(b, 1024)
 }
 
-func BenchmarkPgxNativeSelectLargeTextString8KB(b *testing.B) {
-	benchmarkPgxNativeSelectLargeTextString(b, 8*1024)
+func BenchmarkPgxV4NativeSelectLargeTextString8KB(b *testing.B) {
+	benchmarkPgxV4NativeSelectLargeTextString(b, 8*1024)
 }
 
-func BenchmarkPgxNativeSelectLargeTextString64KB(b *testing.B) {
-	benchmarkPgxNativeSelectLargeTextString(b, 64*1024)
+func BenchmarkPgxV4NativeSelectLargeTextString64KB(b *testing.B) {
+	benchmarkPgxV4NativeSelectLargeTextString(b, 64*1024)
 }
 
-func benchmarkPgxNativeSelectLargeTextString(b *testing.B, size int) {
+func benchmarkPgxV4NativeSelectLargeTextString(b *testing.B, size int) {
 	setup(b)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var s string
-		err := pgxPool.QueryRow(context.Background(), "selectLargeText", size).Scan(&s)
+		err := pgxPoolV4.QueryRow(context.Background(), "selectLargeText", size).Scan(&s)
 		if err != nil {
 			b.Fatalf("row.Scan failed: %v", err)
 		}
@@ -1330,21 +1330,21 @@ func benchmarkPgxNativeSelectLargeTextString(b *testing.B, size int) {
 	}
 }
 
-func BenchmarkPgxStdlibSelectLargeTextString1KB(b *testing.B) {
-	benchmarkPgxStdlibSelectLargeTextString(b, 1024)
+func BenchmarkPgxV4StdlibSelectLargeTextString1KB(b *testing.B) {
+	benchmarkPgxV4StdlibSelectLargeTextString(b, 1024)
 }
 
-func BenchmarkPgxStdlibSelectLargeTextString8KB(b *testing.B) {
-	benchmarkPgxStdlibSelectLargeTextString(b, 8*1024)
+func BenchmarkPgxV4StdlibSelectLargeTextString8KB(b *testing.B) {
+	benchmarkPgxV4StdlibSelectLargeTextString(b, 8*1024)
 }
 
-func BenchmarkPgxStdlibSelectLargeTextString64KB(b *testing.B) {
-	benchmarkPgxStdlibSelectLargeTextString(b, 64*1024)
+func BenchmarkPgxV4StdlibSelectLargeTextString64KB(b *testing.B) {
+	benchmarkPgxV4StdlibSelectLargeTextString(b, 64*1024)
 }
 
-func benchmarkPgxStdlibSelectLargeTextString(b *testing.B, size int) {
+func benchmarkPgxV4StdlibSelectLargeTextString(b *testing.B, size int) {
 	setup(b)
-	stmt, err := pgxStdlib.Prepare(selectLargeTextSQL)
+	stmt, err := pgxStdlibV4.Prepare(selectLargeTextSQL)
 	if err != nil {
 		b.Fatalf("Prepare failed: %v", err)
 	}
@@ -1424,25 +1424,25 @@ func benchmarkSelectLargeTextString(b *testing.B, stmt *sql.Stmt, size int) {
 	}
 }
 
-func BenchmarkPgxNativeSelectLargeTextBytes1KB(b *testing.B) {
-	benchmarkPgxNativeSelectLargeTextBytes(b, 1024)
+func BenchmarkPgxV4NativeSelectLargeTextBytes1KB(b *testing.B) {
+	benchmarkPgxV4NativeSelectLargeTextBytes(b, 1024)
 }
 
-func BenchmarkPgxNativeSelectLargeTextBytes8KB(b *testing.B) {
-	benchmarkPgxNativeSelectLargeTextBytes(b, 8*1024)
+func BenchmarkPgxV4NativeSelectLargeTextBytes8KB(b *testing.B) {
+	benchmarkPgxV4NativeSelectLargeTextBytes(b, 8*1024)
 }
 
-func BenchmarkPgxNativeSelectLargeTextBytes64KB(b *testing.B) {
-	benchmarkPgxNativeSelectLargeTextBytes(b, 64*1024)
+func BenchmarkPgxV4NativeSelectLargeTextBytes64KB(b *testing.B) {
+	benchmarkPgxV4NativeSelectLargeTextBytes(b, 64*1024)
 }
 
-func benchmarkPgxNativeSelectLargeTextBytes(b *testing.B, size int) {
+func benchmarkPgxV4NativeSelectLargeTextBytes(b *testing.B, size int) {
 	setup(b)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var s []byte
-		err := pgxPool.QueryRow(context.Background(), "selectLargeText", size).Scan(&s)
+		err := pgxPoolV4.QueryRow(context.Background(), "selectLargeText", size).Scan(&s)
 		if err != nil {
 			b.Fatalf("row.Scan failed: %v", err)
 		}
@@ -1452,21 +1452,21 @@ func benchmarkPgxNativeSelectLargeTextBytes(b *testing.B, size int) {
 	}
 }
 
-func BenchmarkPgxStdlibSelectLargeTextBytes1KB(b *testing.B) {
-	benchmarkPgxStdlibSelectLargeTextBytes(b, 1024)
+func BenchmarkPgxV4StdlibSelectLargeTextBytes1KB(b *testing.B) {
+	benchmarkPgxV4StdlibSelectLargeTextBytes(b, 1024)
 }
 
-func BenchmarkPgxStdlibSelectLargeTextBytes8KB(b *testing.B) {
-	benchmarkPgxStdlibSelectLargeTextBytes(b, 8*1024)
+func BenchmarkPgxV4StdlibSelectLargeTextBytes8KB(b *testing.B) {
+	benchmarkPgxV4StdlibSelectLargeTextBytes(b, 8*1024)
 }
 
-func BenchmarkPgxStdlibSelectLargeTextBytes64KB(b *testing.B) {
-	benchmarkPgxStdlibSelectLargeTextBytes(b, 64*1024)
+func BenchmarkPgxV4StdlibSelectLargeTextBytes64KB(b *testing.B) {
+	benchmarkPgxV4StdlibSelectLargeTextBytes(b, 64*1024)
 }
 
-func benchmarkPgxStdlibSelectLargeTextBytes(b *testing.B, size int) {
+func benchmarkPgxV4StdlibSelectLargeTextBytes(b *testing.B, size int) {
 	setup(b)
-	stmt, err := pgxStdlib.Prepare(selectLargeTextSQL)
+	stmt, err := pgxStdlibV4.Prepare(selectLargeTextSQL)
 	if err != nil {
 		b.Fatalf("Prepare failed: %v", err)
 	}

@@ -13,9 +13,9 @@ import (
 	"time"
 
 	gopg "github.com/go-pg/pg/v10"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/jackc/pgx/v4/stdlib"
+	pgxv4 "github.com/jackc/pgx/v4"
+	pgxpoolv4 "github.com/jackc/pgx/v4/pgxpool"
+	stdlibv4 "github.com/jackc/pgx/v4/stdlib"
 	_ "github.com/lib/pq"
 )
 
@@ -26,7 +26,7 @@ where id between $1 and $1 + 25
 `
 
 func main() {
-	connPoolConfig, err := pgxpool.ParseConfig("")
+	connPoolConfig, err := pgxpoolv4.ParseConfig("")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "pool.ParseConfig failed:", err)
 		os.Exit(1)
@@ -38,7 +38,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	connPoolConfig.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+	connPoolConfig.AfterConnect = func(ctx context.Context, conn *pgxv4.Conn) error {
 		_, err := conn.Prepare(ctx, "selectPeopleJSON", selectPeopleJSONSQL)
 		if err != nil {
 			return err
@@ -151,11 +151,11 @@ func main() {
 	}
 }
 
-func loadTestData(config *pgx.ConnConfig) error {
+func loadTestData(config *pgxv4.ConnConfig) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	conn, err := pgx.ConnectConfig(ctx, config)
+	conn, err := pgxv4.ConnectConfig(ctx, config)
 	if err != nil {
 		return err
 	}
@@ -179,16 +179,16 @@ func loadTestData(config *pgx.ConnConfig) error {
 	return nil
 }
 
-func openPgxNative(config *pgxpool.Config) (*pgxpool.Pool, error) {
-	return pgxpool.ConnectConfig(context.Background(), config)
+func openPgxNative(config *pgxpoolv4.Config) (*pgxpoolv4.Pool, error) {
+	return pgxpoolv4.ConnectConfig(context.Background(), config)
 }
 
-func openPgxStdlib(config *pgxpool.Config) (*sql.DB, error) {
-	db := stdlib.OpenDB(*config.ConnConfig)
+func openPgxStdlib(config *pgxpoolv4.Config) (*sql.DB, error) {
+	db := stdlibv4.OpenDB(*config.ConnConfig)
 	return db, db.Ping()
 }
 
-func openPq(config *pgx.ConnConfig) (*sql.DB, error) {
+func openPq(config *pgxv4.ConnConfig) (*sql.DB, error) {
 	var options []string
 	options = append(options, fmt.Sprintf("host=%s", config.Host))
 	options = append(options, fmt.Sprintf("port=%v", config.Port))
@@ -206,7 +206,7 @@ func openPq(config *pgx.ConnConfig) (*sql.DB, error) {
 	return sql.Open("postgres", strings.Join(options, " "))
 }
 
-func openPg(config pgx.ConnConfig) (*gopg.DB, error) {
+func openPg(config pgxv4.ConnConfig) (*gopg.DB, error) {
 	var options gopg.Options
 
 	options.Addr = fmt.Sprintf("%s:%d", config.Host, config.Port)
