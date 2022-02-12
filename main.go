@@ -16,6 +16,7 @@ import (
 	pgxv4 "github.com/jackc/pgx/v4"
 	pgxpoolv4 "github.com/jackc/pgx/v4/pgxpool"
 	stdlibv4 "github.com/jackc/pgx/v4/stdlib"
+	pgxpoolv5 "github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/lib/pq"
 )
 
@@ -46,13 +47,13 @@ func main() {
 		return nil
 	}
 
-	pgxPool, err := openPgxNative(connPoolConfig)
+	pgxPool, err := openPgxNativeV4(connPoolConfig)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "openPgxNative failed:", err)
 		os.Exit(1)
 	}
 
-	pgxStdlib, err := openPgxStdlib(connPoolConfig)
+	pgxStdlib, err := openPgxStdlibV4(connPoolConfig)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "openPgxNative failed:", err)
 		os.Exit(1)
@@ -179,13 +180,17 @@ func loadTestData(config *pgxv4.ConnConfig) error {
 	return nil
 }
 
-func openPgxNative(config *pgxpoolv4.Config) (*pgxpoolv4.Pool, error) {
+func openPgxNativeV4(config *pgxpoolv4.Config) (*pgxpoolv4.Pool, error) {
 	return pgxpoolv4.ConnectConfig(context.Background(), config)
 }
 
-func openPgxStdlib(config *pgxpoolv4.Config) (*sql.DB, error) {
+func openPgxStdlibV4(config *pgxpoolv4.Config) (*sql.DB, error) {
 	db := stdlibv4.OpenDB(*config.ConnConfig)
 	return db, db.Ping()
+}
+
+func openPgxNativeV5(config *pgxpoolv5.Config) (*pgxpoolv5.Pool, error) {
+	return pgxpoolv5.ConnectConfig(context.Background(), config)
 }
 
 func openPq(config *pgxv4.ConnConfig) (*sql.DB, error) {
