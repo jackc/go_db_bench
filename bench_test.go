@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-pg/pg/orm"
-	"github.com/go-pg/pg/types"
-	gopg "github.com/go-pg/pg/v9"
+	gopg "github.com/go-pg/pg/v10"
+	"github.com/go-pg/pg/v10/orm"
+	"github.com/go-pg/pg/v10/types"
 	"github.com/jackc/go_db_bench/raw"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgconn/stmtcache"
@@ -85,11 +85,11 @@ type personBytes struct {
 // Implements pg.ColumnScanner.
 var _ orm.ColumnScanner = (*person)(nil)
 
-func (p *person) ScanColumn(colIdx int, colName string, rd types.Reader, n int) error {
+func (p *person) ScanColumn(colInfo types.ColumnInfo, rd types.Reader, n int) error {
 	var err error
 	var n64 int64
 
-	switch colName {
+	switch colInfo.Name {
 	case "id":
 		n64, err = types.ScanInt64(rd, n)
 		p.Id = int32(n64)
@@ -110,7 +110,7 @@ func (p *person) ScanColumn(colIdx int, colName string, rd types.Reader, n int) 
 	case "update_time":
 		p.UpdateTime, err = types.ScanTime(rd, n)
 	default:
-		panic(fmt.Sprintf("unsupported column: %s", colName))
+		panic(fmt.Sprintf("unsupported column: %s", colInfo.Name))
 	}
 
 	return err
@@ -755,38 +755,6 @@ func BenchmarkPgxNativeSelectMultipleRows(b *testing.B) {
 				b.Fatalf("rows.Scan failed: %v", err)
 			}
 			checkPersonWasFilled(b, p)
-		}
-		if rows.Err() != nil {
-			b.Fatalf("pgxPool.Query failed: %v", rows.Err())
-		}
-	}
-}
-
-func BenchmarkPgxNativeSelectMultipleRowsIntoGenericBinary(b *testing.B) {
-	setup(b)
-
-	type personRaw struct {
-		Id         pgtype.GenericBinary
-		FirstName  pgtype.GenericBinary
-		LastName   pgtype.GenericBinary
-		Sex        pgtype.GenericBinary
-		BirthDate  pgtype.GenericBinary
-		Weight     pgtype.GenericBinary
-		Height     pgtype.GenericBinary
-		UpdateTime pgtype.GenericBinary
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		id := randPersonIDs[i%len(randPersonIDs)]
-
-		rows, _ := pgxPool.Query(context.Background(), "selectMultiplePeople", id)
-		var p personRaw
-		for rows.Next() {
-			err := rows.Scan(&p.Id, &p.FirstName, &p.LastName, &p.Sex, &p.BirthDate, &p.Weight, &p.Height, &p.UpdateTime)
-			if err != nil {
-				b.Fatalf("rows.Scan failed: %v", err)
-			}
 		}
 		if rows.Err() != nil {
 			b.Fatalf("pgxPool.Query failed: %v", rows.Err())

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	gopg "github.com/go-pg/pg/v9"
+	gopg "github.com/go-pg/pg/v10"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/jackc/pgx/v4/stdlib"
