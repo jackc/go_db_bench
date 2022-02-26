@@ -1725,7 +1725,7 @@ func benchmarkPgxV5NativeSelectLargeTextBytes(b *testing.B, size int) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var s []byte
-		err := pgxPoolV4.QueryRow(context.Background(), "selectLargeText", size).Scan(&s)
+		err := pgxPoolV5.QueryRow(context.Background(), "selectLargeText", size).Scan(&s)
 		if err != nil {
 			b.Fatalf("row.Scan failed: %v", err)
 		}
