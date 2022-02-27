@@ -8,7 +8,7 @@ require (
 	github.com/jackc/pgproto3/v2 v2.2.0
 	github.com/jackc/pgtype v1.10.0
 	github.com/jackc/pgx/v4 v4.15.0
-	github.com/jackc/pgx/v5 v5.0.0-20220221161016-43083cb0e3c4
+	github.com/jackc/pgx/v5 v5.0.0-20220227022815-a8f6674a07b2
 	github.com/lib/pq v1.10.4
 	gopkg.in/inconshreveable/log15.v2 v2.0.0-20200109203555-b30bc20e4fd1
 )

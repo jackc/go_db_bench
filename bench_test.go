@@ -20,6 +20,7 @@ import (
 	pgxpoolv4 "github.com/jackc/pgx/v4/pgxpool"
 	pgxv5 "github.com/jackc/pgx/v5"
 	pgconnv5 "github.com/jackc/pgx/v5/pgconn"
+	pgtypev5 "github.com/jackc/pgx/v5/pgtype"
 	pgxpoolv5 "github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -1731,6 +1732,44 @@ func benchmarkPgxV5NativeSelectLargeTextBytes(b *testing.B, size int) {
 		}
 		if len(s) != size {
 			b.Fatalf("expected length %v, got %v", size, len(s))
+		}
+	}
+}
+
+func BenchmarkPgxV5NativeSelectLargeTextDriverBytes1KB(b *testing.B) {
+	benchmarkPgxV5NativeSelectLargeTextDriverBytes(b, 1024)
+}
+
+func BenchmarkPgxV5NativeSelectLargeTextDriverBytes8KB(b *testing.B) {
+	benchmarkPgxV5NativeSelectLargeTextDriverBytes(b, 8*1024)
+}
+
+func BenchmarkPgxV5NativeSelectLargeTextDriverBytes64KB(b *testing.B) {
+	benchmarkPgxV5NativeSelectLargeTextDriverBytes(b, 64*1024)
+}
+
+func benchmarkPgxV5NativeSelectLargeTextDriverBytes(b *testing.B, size int) {
+	setup(b)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		var s []byte
+		// Can't use QueryRow with DriverBytes
+		rows, err := pgxPoolV5.Query(context.Background(), "selectLargeText", size)
+		if !rows.Next() {
+			b.Fatalf("rows.Next unexpectedly was false")
+		}
+		err = rows.Scan((*pgtypev5.DriverBytes)(&s))
+		if err != nil {
+			b.Fatalf("row.Scan failed: %v", err)
+		}
+		if len(s) != size {
+			b.Fatalf("expected length %v, got %v", size, len(s))
+		}
+		rows.Close()
+		err = rows.Err()
+		if err != nil {
+			b.Fatalf("rows.Err(): %v", err)
 		}
 	}
 }
